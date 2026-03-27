@@ -286,13 +286,32 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-study-attendance-v2';
+        // 안전한 아이콘 생성 함수 (인터넷 망 분리 환경 대비)
+        function safeCreateIcons() {
+            try {
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            } catch(e) {}
+        }
 
-        const apiKey = ""; // Gemini API Key injected by environment
+        // 안전한 Firebase 초기화 (다운로드 등 로컬 환경 대비)
+        let app = null;
+        let auth = null;
+        let db = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-study-attendance-v2';
+        const apiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : ""; 
+
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            }
+        } catch (e) {
+            console.warn("Firebase 초기화 건너뜀 (로컬 모드로 실행 중)");
+        }
 
         const classConfig = { 1: 6, 2: 7, 3: 7 };
         const totalClasses = Object.values(classConfig).reduce((a, b) => a + b, 0);
@@ -317,7 +336,6 @@
         // 👇👇👇 기초 데이터 설정 영역 👇👇👇
         // ============================================================================
         
-        // 1. 담임 선생님 명단
         const defaultTeacherText = `학년,반,담임
 1학년,1반,김현정
 1학년,2반,류제원
@@ -340,8 +358,6 @@
 3학년,6반,김병희
 3학년,7반,이명진`;
 
-        // 2. 전체 학생 명단
-        // 여기에 전체 엑셀 데이터를 넣어주시면 됩니다.
         const defaultStudentText = `학번,이름
 10101,권기백
 10102,김이현
@@ -630,7 +646,7 @@
         // ============================================================================
 
         async function init() {
-            lucide.createIcons();
+            safeCreateIcons();
             showLoading(true);
 
             const offset = new Date().getTimezoneOffset() * 60000;
@@ -638,25 +654,27 @@
             
             setDateVariables(todayRealStr);
 
-            const initAuth = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (e) { console.error("Auth error", e); }
-            };
-            
-            await initAuth();
+            if (auth) {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) { console.error("Auth error", e); }
+                };
+                
+                await initAuth();
 
-            onAuthStateChanged(auth, (u) => {
-                user = u;
-                if (user) {
-                    subscribeToConfig();
-                    subscribeToAttendance();
-                }
-            });
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (user) {
+                        subscribeToConfig();
+                        subscribeToAttendance();
+                    }
+                });
+            }
 
             allStudents = parseStudentCSV(defaultStudentText);
             teachersData = parseTeacherCSV(defaultTeacherText);
@@ -665,8 +683,11 @@
             showLoading(false);
         }
 
-        // === Gemini API Fetch Utility with Exponential Backoff ===
+        // === Gemini API Fetch Utility ===
         async function fetchGeminiAPI(prompt, systemInstruction) {
+            if (!apiKey) {
+                throw new Error("로컬 환경에서는 AI 기능을 사용할 수 없습니다.");
+            }
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -708,7 +729,7 @@
                     <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
                     <p class="font-bold text-sm">AI가 통계 데이터를 분석하여<br/>보고서를 작성하고 있습니다...</p>
                 </div>`;
-            lucide.createIcons();
+            safeCreateIcons();
 
             const prompt = `오늘(${dateStr}) 우리 학교의 야간 자율학습 참여 현황입니다.
 - 전체 평균 참여율: ${overallPercent}
@@ -731,9 +752,9 @@
                 contentBox.innerHTML = `
                     <div class="flex flex-col items-center gap-2 text-rose-500">
                         <i data-lucide="alert-triangle" class="w-8 h-8"></i>
-                        <p class="font-bold text-sm">브리핑 생성에 실패했습니다. 나중에 다시 시도해 주세요.</p>
+                        <p class="font-bold text-sm">브리핑 생성에 실패했습니다.<br/><span class="text-xs text-rose-400 font-normal">(웹 페이지에서 직접 실행 중이신 경우 이용할 수 없습니다)</span></p>
                     </div>`;
-                lucide.createIcons();
+                safeCreateIcons();
             }
         };
 
@@ -744,7 +765,6 @@
         window.copyAIText = () => {
             const el = document.getElementById('ai-text-result');
             if (el) {
-                // Br tags to new lines
                 const text = el.innerText;
                 const tempTextArea = document.createElement('textarea');
                 tempTextArea.value = text;
@@ -769,7 +789,7 @@
                 <div class="flex items-center gap-2 text-indigo-500 font-semibold justify-center">
                     <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> 생성 중...
                 </div>`;
-            lucide.createIcons();
+            safeCreateIcons();
 
             const prompt = `지금은 저녁 시간이며 우리 학교 ${selectedGrade}학년 ${selectedClass}반 학생들이 남아서 야간 자율학습을 하고 있습니다.
 전자칠판에 띄워둘 짧고 재치있으며 따뜻한 응원 메시지(1~2문장)를 작성해주세요. 학생들의 피로를 날려줄 센스 있는 이모지를 꼭 포함해주세요.`;
@@ -790,7 +810,7 @@
                     </div>`;
             } catch (e) {
                 console.error("AI Cheer Message Error:", e);
-                cheerBox.innerHTML = '<span class="text-rose-500 font-semibold">응원 메시지를 불러오지 못했습니다.</span>';
+                cheerBox.innerHTML = '<span class="text-rose-500 font-semibold text-xs">응원 메시지를 불러오지 못했습니다. (로컬 환경 여부 확인)</span>';
             }
         };
 
@@ -825,18 +845,14 @@
             const dateObj = new Date(dateString);
             const days = ['일', '월', '화', '수', '목', '금', '토'];
             
-            // 날짜 텍스트 업데이트 
             const parts = dateString.split('-');
             document.getElementById('current-date-display').textContent = 
                 `${parts[0]}. ${parts[1]}. ${parts[2]} (${days[dateObj.getDay()]})`;
             
-            // 입력창과 동기화
             document.getElementById('date-selector').value = dateString;
 
-            // 미래 방지 비활성화 처리 (+ 버튼)
             checkPlusButtons(dateString);
 
-            // 과거 날짜 경고 및 오늘버튼 노출
             const warningEl = document.getElementById('date-warning');
             const btnToday = document.getElementById('btn-today');
             if (dateString !== todayRealStr) {
@@ -880,7 +896,7 @@
             const previousMonth = currentMonthStr;
             setDateVariables(newDateStr);
             
-            if (previousMonth !== currentMonthStr && user) {
+            if (previousMonth !== currentMonthStr && user && db) {
                 subscribeToAttendance();
             } else {
                 refreshCurrentView();
@@ -1017,10 +1033,10 @@
                     <div class="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-8 text-center text-slate-500 mt-2">
                         <i data-lucide="file-warning" class="w-12 h-12 mx-auto mb-3 text-slate-400"></i>
                         <p class="font-bold text-slate-700 mb-1">학생 데이터가 없습니다.</p>
-                        <p class="text-sm">관리자 메뉴의 '기초 데이터 설정'에서 전체 <b>학생데이터.csv</b>를 업로드해주세요.</p>
+                        <p class="text-sm">코드 상단의 <b>기초 데이터 설정</b> 영역에 학생 명단을 입력해주세요.</p>
                     </div>
                 `;
-                lucide.createIcons();
+                safeCreateIcons();
             }
 
             students.forEach(student => {
@@ -1081,11 +1097,7 @@
         }
 
         window.toggleStatus = async (studentId, period) => {
-            if (!user) return;
             const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-            const collectionPath = `attendance_${currentMonthStr}`;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionPath, docId);
-            
             const currentClassData = attendanceData[docId] || {};
             const sData = currentClassData[studentId] || { p1: 0, p2: 0, p3: 0, p4: 0 };
             
@@ -1100,14 +1112,19 @@
             }
 
             currentClassData[studentId] = sData;
-            
             attendanceData[docId] = currentClassData;
             renderStudents();
 
-            try {
-                await setDoc(docRef, { data: currentClassData }, { merge: true });
-                showToast("기록됨");
-            } catch (e) { showToast("저장 실패", "error"); }
+            if (db && user) {
+                const collectionPath = `attendance_${currentMonthStr}`;
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionPath, docId);
+                try {
+                    await setDoc(docRef, { data: currentClassData }, { merge: true });
+                    showToast("기록됨");
+                } catch (e) { showToast("저장 실패", "error"); }
+            } else {
+                showToast("기록됨 (로컬모드)");
+            }
         };
 
         function updateAdminStats() {
@@ -1200,8 +1217,8 @@
             }
         }
 
-        // === Firebase Subscriptions ===
         function subscribeToConfig() {
+            if (!db) return;
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'config_v1'), (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -1213,6 +1230,7 @@
         }
 
         function subscribeToAttendance() {
+            if (!db) return;
             if (unsubAttendance) {
                 unsubAttendance();
             }
@@ -1266,7 +1284,7 @@
             return teachers;
         }
 
-        // === Excel Export (HTML 서식을 활용한 엑셀 생성 방식) ===
+        // === Excel Export ===
         window.exportToExcel = () => {
             const dateObj = new Date(currentDateStr);
             const days = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1276,7 +1294,6 @@
             let gradeTotals = { 1: 0, 2: 0, 3: 0 };
             let classStats = { 1: {}, 2: {}, 3: {} };
 
-            // 데이터 집계
             for (let g = 1; g <= 3; g++) {
                 const maxClass = classConfig[g];
                 for (let c = 1; c <= maxClass; c++) {
@@ -1305,7 +1322,6 @@
                 }
             }
 
-            // HTML 표(Table) 구문 생성 (테두리 및 색상 서식 포함)
             let rowsHtml = '';
             for (let c = 1; c <= 7; c++) {
                 rowsHtml += '<tr><td style="border:none;"></td>';
@@ -1320,7 +1336,6 @@
                 rowsHtml += '</tr>';
             }
 
-            // 완벽한 엑셀 파일(.xls) 형식을 갖추기 위한 HTML 구조
             const excelHtml = `
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head>
@@ -1357,7 +1372,6 @@
             </html>
             `;
 
-            // MS 엑셀 파일(.xls) 포맷으로 변환
             const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
@@ -1379,13 +1393,18 @@
             } else {
                 iconContainer.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>';
             }
-            lucide.createIcons();
+            safeCreateIcons();
 
             t.classList.remove('translate-y-20');
             setTimeout(() => t.classList.add('translate-y-20'), 2000);
         }
 
-        window.onload = init;
+        // 스크립트 실행 타이밍 문제 방지 및 즉각 실행
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>
