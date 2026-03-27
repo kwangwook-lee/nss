@@ -150,14 +150,18 @@
                 <p class="text-sm text-slate-500 mb-1 font-semibold">전체 참여율 (일간)</p>
                 <span class="text-4xl font-extrabold text-slate-900 tracking-tight" id="admin-total-percent">0.0%</span>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <button data-action="generate-briefing"
                     class="no-scale px-5 py-3 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl font-bold flex items-center gap-2">
                     <i data-lucide="sparkles" class="pointer-events-none w-5 h-5 text-amber-500"></i> AI 브리핑 ✨
                 </button>
-                <button data-action="export-excel"
-                    class="no-scale px-6 py-3 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold flex items-center gap-2">
-                    <i data-lucide="file-spreadsheet" class="pointer-events-none w-5 h-5"></i> 엑셀 다운로드
+                <button data-action="export-excel-daily"
+                    class="no-scale px-5 py-3 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="pointer-events-none w-5 h-5"></i> 일별 엑셀
+                </button>
+                <button data-action="export-excel-monthly"
+                    class="no-scale px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-xl font-bold flex items-center gap-2">
+                    <i data-lucide="calendar-range" class="pointer-events-none w-5 h-5"></i> 월별 엑셀
                 </button>
             </div>
         </div>
@@ -635,7 +639,8 @@ function setupEventDelegation() {
         else if (action === 'go-today')         changeDate(todayRealStr);
         else if (action === 'clear-all')        clearAllAttendance();
         else if (action === 'mark-all')         markAll(parseInt(btn.dataset.status));
-        else if (action === 'export-excel')     exportToExcel();
+        else if (action === 'export-excel-daily')   exportToExcelDaily();
+        else if (action === 'export-excel-monthly') exportToExcelMonthly();
         else if (action === 'generate-cheer')   generateCheerMessage();
         else if (action === 'generate-briefing')generateAIBriefing();
         else if (action === 'close-modal')      closeAIModal();
@@ -1017,63 +1022,212 @@ function parseTeacherCSV(t) {
     return obj;
 }
 
-// ── 엑셀 다운로드 ─────────────────────────────────────────────────────────────
-// 미처리(0)는 결석으로 간주 → 출석(1)인 경우만 출석 인원으로 집계
-function exportToExcel() {
-    const formattedDate = currentDateStr.replace(/-/g, '.');
-    const maxClass  = Math.max(...Object.values(CONFIG.classes));
-    const totalCols = 1 + CONFIG.maxGrade * (2 + CONFIG.maxPeriods);
+// ── 공통 유틸 ────────────────────────────────────────────────────────────────
 
-    let headerGrade = '<tr><td></td>';
+const XL_STYLE = `table{border-collapse:collapse;font-family:'Malgun Gothic';}
+td{height:28px;vertical-align:middle;font-size:10pt;}
+.h{font-weight:bold;background:#f0f4ff;text-align:center;}
+.sub{font-weight:bold;background:#f8fafc;text-align:center;}
+.rate{color:#4f46e5;font-weight:bold;}`;
+
+/** 출석(1)만 출석 — 미처리(0)·결석(2) 모두 결석으로 집계 */
+function countPresent(data, students, period) {
+    return students.filter(s => (data[s.id]?.[`p${period}`] ?? 0) === 1).length;
+}
+
+function downloadXls(html, filename) {
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ── 일별 엑셀 ────────────────────────────────────────────────────────────────
+// 형식: 반(행) × [재적 + 1~4차시 출석수 + 참여율](열) — 학년별 그룹
+function exportToExcelDaily() {
+    const fd       = currentDateStr.replace(/-/g, '.');
+    const maxClass = Math.max(...Object.values(CONFIG.classes));
+    // 열 구조: 반(1) + 학년별(재적1 + 차시4 + 참여율1 = 6) × 3학년 = 1+18 = 19
+    const colsPerGrade = 1 + CONFIG.maxPeriods + 1;   // 재적,1차~4차,참여율
+    const totalCols    = 1 + CONFIG.maxGrade * colsPerGrade;
+
+    const B = (s, extra='') => `style="border:0.5pt solid #aaa;${extra}"`;
+    const C = (s, extra='') => `style="border:0.5pt solid #aaa;text-align:center;${extra}"`;
+
+    // ① 제목 행
+    let html = `<tr><td colspan="${totalCols}" ${B('','font-size:14pt;font-weight:bold;text-align:center;height:50px;')}>야간 자율학습 일별 참여현황 (${fd})</td></tr>`;
+
+    // ② 학년 헤더
+    html += `<tr><td ${B('')}></td>`;
     for (let g = 1; g <= CONFIG.maxGrade; g++)
-        headerGrade += `<td colspan="${2+CONFIG.maxPeriods}" style="border:0.5pt solid black;text-align:center;font-weight:bold;">${g}학년</td>`;
-    headerGrade += '</tr>';
+        html += `<td colspan="${colsPerGrade}" ${C('','font-weight:bold;background:#e0e7ff;font-size:11pt;')}>${g}학년</td>`;
+    html += '</tr>';
 
-    let headerLabel = '<tr><td style="border:0.5pt solid black;text-align:center;">반</td>';
+    // ③ 열 레이블
+    html += `<tr><td ${C('','font-weight:bold;background:#f1f5f9;')}>반</td>`;
     for (let g = 1; g <= CONFIG.maxGrade; g++) {
-        headerLabel += '<td style="border:0.5pt solid black;text-align:center;">반</td>';
-        headerLabel += '<td style="border:0.5pt solid black;text-align:center;">재적</td>';
+        html += `<td ${C('','font-weight:bold;background:#f1f5f9;')}>재적</td>`;
         for (let p = 1; p <= CONFIG.maxPeriods; p++)
-            headerLabel += `<td style="border:0.5pt solid black;text-align:center;">${p}차(출석)</td>`;
+            html += `<td ${C('','font-weight:bold;background:#f1f5f9;')}>${p}차</td>`;
+        html += `<td ${C('','font-weight:bold;background:#f1f5f9;')}>참여율</td>`;
     }
-    headerLabel += '</tr>';
+    html += '</tr>';
 
-    let rowsHtml = '';
+    // ④ 데이터 행 (반 기준)
     for (let c = 1; c <= maxClass; c++) {
-        rowsHtml += `<tr><td style="border:0.5pt solid black;text-align:center;">${c}반</td>`;
+        html += `<tr><td ${C('','font-weight:bold;')}>${c}반</td>`;
         for (let g = 1; g <= CONFIG.maxGrade; g++) {
             if (c <= CONFIG.classes[g]) {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data     = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
-                // status === 1 만 출석, 0(미처리) · 2(결석) 모두 결석으로 처리
-                const pCounts  = Array.from({ length: CONFIG.maxPeriods }, (_, i) =>
-                    students.filter(s => (data[s.id]?.[`p${i+1}`] ?? 0) === 1).length
-                );
-                rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${c}</td>`;
-                rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${students.length}</td>`;
-                pCounts.forEach(n => {
-                    rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${n}</td>`;
-                });
+                const pCounts  = Array.from({length: CONFIG.maxPeriods}, (_, i) =>
+                    countPresent(data, students, i+1));
+                const pSum  = pCounts.reduce((a,b) => a+b, 0);
+                const slots = students.length * CONFIG.maxPeriods;
+                const rate  = slots > 0 ? (pSum/slots*100).toFixed(1)+'%' : '-';
+                html += `<td ${C('')}>${students.length}</td>`;
+                pCounts.forEach(n => { html += `<td ${C('')}>${n}</td>`; });
+                html += `<td ${C('','color:#4f46e5;font-weight:bold;')}>${rate}</td>`;
             } else {
-                rowsHtml += `<td colspan="${2+CONFIG.maxPeriods}" style="border:0.5pt solid black;"></td>`;
+                html += `<td colspan="${colsPerGrade}" ${B('')}></td>`;
             }
         }
-        rowsHtml += '</tr>';
+        html += '</tr>';
     }
 
-    const html = `<html><head><meta charset='utf-8'>
-<style>table{border-collapse:collapse;font-family:'Malgun Gothic';}td{height:30px;}</style>
-</head><body><table>
-<tr><td colspan="${totalCols}" style="text-align:center;font-size:16pt;font-weight:bold;height:60px;">야간 자율학습 참여현황 (${formattedDate})</td></tr>
-${headerGrade}${headerLabel}${rowsHtml}
-</table></body></html>`;
+    // ⑤ 합계 행
+    html += `<tr><td ${C('','font-weight:bold;background:#f8fafc;')}>전체</td>`;
+    for (let g = 1; g <= CONFIG.maxGrade; g++) {
+        const students = allStudents.filter(s => s.grade === g);
+        const total    = students.length;
+        let pSums = Array(CONFIG.maxPeriods).fill(0);
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            const cls  = students.filter(s => s.class === c);
+            const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
+            for (let p = 0; p < CONFIG.maxPeriods; p++)
+                pSums[p] += countPresent(data, cls, p+1);
+        }
+        const pSum  = pSums.reduce((a,b)=>a+b,0);
+        const slots = total * CONFIG.maxPeriods;
+        const rate  = slots > 0 ? (pSum/slots*100).toFixed(1)+'%' : '-';
+        html += `<td ${C('','font-weight:bold;background:#f8fafc;')}>${total}</td>`;
+        pSums.forEach(n => { html += `<td ${C('','font-weight:bold;background:#f8fafc;')}>${n}</td>`; });
+        html += `<td ${C('','color:#4f46e5;font-weight:bold;background:#f8fafc;')}>${rate}</td>`;
+    }
+    html += '</tr>';
 
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `참여현황_${currentDateStr}.xls`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadXls(
+        `<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table>${html}</table></body></html>`,
+        `일별통계_${currentDateStr}.xls`
+    );
+}
+
+// ── 월별 엑셀 ────────────────────────────────────────────────────────────────
+// 형식: 반(열) × 날짜(행) — 각 셀에 4차시 출석 합계와 참여율
+async function exportToExcelMonthly() {
+    showToast('월별 데이터 수집 중...', 'success');
+
+    // Firestore에서 현재 월 전체 데이터 가져오기
+    // attendanceData는 이미 현재 월 데이터가 subscribeToAttendance로 로드돼 있음
+    // 키 형식: "YYYY-MM-DD_학년_반" → 날짜 목록 추출
+    const monthPrefix = currentMonthStr; // "YYYY-MM"
+    const dateSet = new Set();
+    Object.keys(attendanceData).forEach(key => {
+        const m = key.match(/^(\d{4}-\d{2}-\d{2})_/);
+        if (m && m[1].startsWith(monthPrefix)) dateSet.add(m[1]);
+    });
+
+    // 날짜가 없으면 현재 날짜만 포함
+    if (dateSet.size === 0) dateSet.add(currentDateStr);
+
+    const dates = Array.from(dateSet).sort();
+    const days  = ['일','월','화','수','목','금','토'];
+
+    // 반 목록 (학년-반 순)
+    const classList = [];
+    for (let g = 1; g <= CONFIG.maxGrade; g++)
+        for (let c = 1; c <= CONFIG.classes[g]; c++)
+            classList.push({ g, c });
+
+    const B  = (extra='') => `style="border:0.5pt solid #aaa;${extra}"`;
+    const C  = (extra='') => `style="border:0.5pt solid #aaa;text-align:center;${extra}"`;
+
+    // ① 제목
+    const totalCols = 1 + classList.length + 1; // 날짜 + 반들 + 전체합계
+    let html = `<tr><td colspan="${totalCols}" ${B('font-size:14pt;font-weight:bold;text-align:center;height:50px;')}>야간 자율학습 월별 참여현황 (${monthPrefix.replace('-','년 ')}월)</td></tr>`;
+
+    // ② 헤더 행 — 학년 그룹
+    html += `<tr><td ${B('')}></td>`;
+    let g_cur = 0, g_span = 0;
+    const groupCols = [];
+    classList.forEach(({g}) => {
+        if (g !== g_cur) { if (g_cur) groupCols.push({g: g_cur, span: g_span}); g_cur = g; g_span = 1; }
+        else g_span++;
+    });
+    if (g_cur) groupCols.push({g: g_cur, span: g_span});
+    groupCols.forEach(({g, span}) => {
+        html += `<td colspan="${span}" ${C('font-weight:bold;background:#e0e7ff;font-size:11pt;')}>${g}학년</td>`;
+    });
+    html += `<td ${C('font-weight:bold;background:#fef9c3;')}>전체</td></tr>`;
+
+    // ③ 반 레이블 행
+    html += `<tr><td ${C('font-weight:bold;background:#f1f5f9;')}>날짜</td>`;
+    classList.forEach(({g,c}) => {
+        const teacher = teachersData[`${g}_${c}`] || '';
+        html += `<td ${C('font-weight:bold;background:#f1f5f9;')}>${g}-${c}<br/><span style="font-size:8pt;color:#666;">${teacher}</span></td>`;
+    });
+    html += `<td ${C('font-weight:bold;background:#f1f5f9;')}>전체<br/><span style="font-size:8pt;">참여율</span></td></tr>`;
+
+    // ④ 날짜별 데이터 행
+    let grandTotal = 0, grandSlots = 0;
+    const classTotals = classList.map(() => ({sum:0, slots:0}));
+
+    dates.forEach(dateStr => {
+        const d    = new Date(dateStr + 'T12:00:00');
+        const dow  = days[d.getDay()];
+        const isWE = d.getDay() === 0 || d.getDay() === 6;
+        const rowBg = isWE ? 'background:#fff7ed;' : '';
+        const label = `${dateStr.replace(currentMonthStr+'-','').replace(/^0/,'')}일(${dow})`;
+
+        html += `<tr><td ${C(`font-weight:bold;${rowBg}`)}>${label}</td>`;
+
+        let daySum = 0, daySlots = 0;
+        classList.forEach(({g,c}, idx) => {
+            const students = allStudents.filter(s => s.grade === g && s.class === c);
+            const data     = attendanceData[`${dateStr}_${g}_${c}`] || {};
+            let present = 0;
+            for (let p = 1; p <= CONFIG.maxPeriods; p++)
+                present += countPresent(data, students, p);
+            const slots = students.length * CONFIG.maxPeriods;
+            const rate  = slots > 0 ? (present/slots*100).toFixed(0) : '-';
+            const cellBg = present === 0 && slots > 0 ? 'background:#fff1f2;' : (slots > 0 && present === slots ? 'background:#f0fdf4;' : '');
+            html += `<td ${C(`${rowBg}${cellBg}`)}>${present}/${slots}<br/><span style="font-size:8pt;color:#4f46e5;">${rate}%</span></td>`;
+            daySum   += present; daySlots += slots;
+            classTotals[idx].sum   += present;
+            classTotals[idx].slots += slots;
+        });
+
+        const dayRate = daySlots > 0 ? (daySum/daySlots*100).toFixed(1)+'%' : '-';
+        html += `<td ${C(`font-weight:bold;color:#4f46e5;background:#fef9c3;${rowBg}`)}>${dayRate}</td></tr>`;
+        grandTotal += daySum; grandSlots += daySlots;
+    });
+
+    // ⑤ 월 합계 행
+    html += `<tr><td ${C('font-weight:bold;background:#f8fafc;')}>월 합계</td>`;
+    classTotals.forEach(({sum, slots}) => {
+        const rate = slots > 0 ? (sum/slots*100).toFixed(1)+'%' : '-';
+        html += `<td ${C('font-weight:bold;background:#f8fafc;')}>${sum}/${slots}<br/><span style="font-size:8pt;color:#4f46e5;">${rate}</span></td>`;
+    });
+    const grandRate = grandSlots > 0 ? (grandTotal/grandSlots*100).toFixed(1)+'%' : '-';
+    html += `<td ${C('font-weight:bold;color:#4f46e5;background:#fef9c3;')}>${grandRate}</td></tr>`;
+
+    downloadXls(
+        `<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table>${html}</table></body></html>`,
+        `월별통계_${monthPrefix}.xls`
+    );
+    showToast(`${monthPrefix} 월별 통계 다운로드 완료`);
 }
 
 // ── AI 기능 ──────────────────────────────────────────────────────────────────
