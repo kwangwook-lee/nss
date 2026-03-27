@@ -139,6 +139,7 @@
                     </div>
 
                     <div id="student-container" class="hidden">
+                        <!-- 안내 및 모두 지우기 버튼 -->
                         <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <span class="text-sm font-semibold text-slate-500 hidden md:inline">안내:</span>
@@ -820,7 +821,6 @@
             }
         };
 
-
         // === Custom Date Control Handling ===
         window.adjustDate = (unit, delta) => {
             const parts = currentDateStr.split('-');
@@ -1113,12 +1113,10 @@
             const maxPeriod = selectedGrade === 3 ? 4 : 3;
             
             if (newStatus === 2) {
-                // 결석(2) 처리 시 이후 차시들도 자동 결석 처리
                 for (let nextP = period + 1; nextP <= maxPeriod; nextP++) {
                     sData[`p${nextP}`] = 2;
                 }
             } else if (newStatus === 0) {
-                // 미기입(0)으로 되돌릴 시 이후 차시들도 자동 미기입 처리(초기화)
                 for (let nextP = period + 1; nextP <= maxPeriod; nextP++) {
                     sData[`p${nextP}`] = 0;
                 }
@@ -1140,6 +1138,7 @@
             }
         };
 
+        // === 모두 지우기 기능 추가 ===
         window.clearAllAttendance = async () => {
             if (!selectedGrade || !selectedClass) return;
             if (!confirm(`${selectedGrade}학년 ${selectedClass}반의 현재 날짜(${currentDateStr}) 출결 기록을 모두 초기화하시겠습니까?`)) return;
@@ -1149,7 +1148,6 @@
             
             const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
             
-            // 모든 학생의 1~4차시를 0(미기입)으로 초기화
             students.forEach(student => {
                 currentClassData[student.id] = { p1: 0, p2: 0, p3: 0, p4: 0 };
             });
