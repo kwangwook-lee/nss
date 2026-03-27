@@ -99,9 +99,9 @@
                             <div>
                                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">학년</span>
                                 <div class="grid grid-cols-3 gap-2 mt-2">
-                                    <button onclick="setGrade(1)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg" data-grade="1">1</button>
-                                    <button onclick="setGrade(2)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg" data-grade="2">2</button>
-                                    <button onclick="setGrade(3)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg" data-grade="3">3</button>
+                                    <button onclick="setGrade(1)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg transition-all" data-grade="1">1</button>
+                                    <button onclick="setGrade(2)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg transition-all" data-grade="2">2</button>
+                                    <button onclick="setGrade(3)" class="grade-btn px-3 py-3 border rounded-xl font-bold md:text-lg transition-all" data-grade="3">3</button>
                                 </div>
                             </div>
                             <div>
@@ -149,7 +149,8 @@
                             <div class="text-xs text-slate-400 italic font-semibold bg-slate-50 px-3 py-1 rounded-full border border-slate-100 hidden sm:block">터치: 미기입 → 출결전환</div>
                         </div>
                         
-                        <div id="student-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        <!-- 확실한 3열 배치 (lg:grid-cols-3) 적용 -->
+                        <div id="student-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <!-- Student cards -->
                         </div>
                     </div>
