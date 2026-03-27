@@ -45,7 +45,7 @@
                         <button onclick="adjustDate('day', -1)" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
                         <div class="relative flex items-center justify-center px-2 md:px-4 h-10 hover:bg-white hover:shadow-sm rounded-lg transition-all cursor-pointer">
                             <input type="date" id="date-selector" onchange="changeDate(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                            <span id="current-date-display" class="text-sm md:text-base font-bold text-slate-800 pointer-events-none whitespace-nowrap">연도. 월. 일</span>
+                            <span id="current-date-display" class="text-sm md:text-base font-bold text-slate-800 pointer-events-none whitespace-nowrap">2026. 03. 27 (금)</span>
                         </div>
                         <button onclick="adjustDate('day', 1)" id="btn-day-plus" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
                     </div>
@@ -111,12 +111,12 @@
                             <button onclick="generateCheerMessage()" class="w-full px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2">
                                 <i data-lucide="sparkles" class="w-4 h-4"></i> AI 학생 응원 생성 ✨
                             </button>
-                            <div id="ai-cheer-message" class="hidden mt-3 p-4 bg-white/80 backdrop-blur-sm rounded-xl text-sm leading-relaxed text-indigo-900 border border-indigo-100 shadow-sm"></div>
+                            <div id="ai-cheer-message" class="hidden mt-3 p-4 bg-white/80 backdrop-blur-sm rounded-xl text-sm leading-relaxed text-indigo-900 border border-indigo-100 shadow-sm relative"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Student List Grid -->
+                <!-- Main Content -->
                 <div class="lg:col-span-3 space-y-4">
                     <div id="no-class-selected" class="bg-white border-2 border-dashed border-slate-200 rounded-2xl h-96 flex flex-col items-center justify-center text-slate-400">
                         <i data-lucide="mouse-pointer-2" class="w-12 h-12 mb-2"></i>
@@ -137,6 +137,7 @@
                             </div>
                         </div>
                         
+                        <!-- 3열 레이아웃 고정 -->
                         <div id="student-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
                     </div>
                 </div>
@@ -218,20 +219,17 @@
             </div>
         </main>
         
-        <!-- AI Briefing Modal -->
+        <!-- AI Modal -->
         <div id="ai-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-amber-50 to-orange-50">
-                    <h3 class="font-bold text-amber-900 flex items-center gap-2 text-lg"><i data-lucide="sparkles" class="w-5 h-5 text-amber-600"></i> AI 일일 브리핑</h3>
-                    <button onclick="closeAIModal()" class="text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="x" class="w-6 h-6"></i></button>
+                    <h3 class="font-bold text-amber-900 flex items-center gap-2 text-lg"><i data-lucide="sparkles" class="w-5 h-5 text-amber-600"></i> AI 브리핑</h3>
+                    <button onclick="closeAIModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-6 h-6"></i></button>
                 </div>
-                <div class="p-6 min-h-[160px] flex flex-col justify-center" id="ai-content"></div>
-                <div class="px-6 py-4 bg-slate-50 flex justify-between items-center border-t border-slate-100">
-                    <span class="text-xs font-semibold text-slate-400">Powered by Gemini AI</span>
-                    <div class="flex gap-2">
-                        <button onclick="copyAIText()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-50 transition-colors shadow-sm">복사</button>
-                        <button onclick="closeAIModal()" class="px-4 py-2 bg-slate-800 text-white text-sm font-bold rounded-lg hover:bg-slate-900 transition-colors">닫기</button>
-                    </div>
+                <div class="p-6 min-h-[160px]" id="ai-content"></div>
+                <div class="px-6 py-4 bg-slate-50 flex justify-end gap-2 border-t border-slate-100">
+                    <button onclick="copyAIText()" class="px-4 py-2 bg-white border text-sm font-bold rounded-lg hover:bg-slate-50">복사</button>
+                    <button onclick="closeAIModal()" class="px-4 py-2 bg-slate-800 text-white text-sm font-bold rounded-lg">닫기</button>
                 </div>
             </div>
         </div>
@@ -242,13 +240,11 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- Core App Variables ---
+        // --- Global State ---
         let app, auth, db, user;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-study-attendance-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-attendance-prod';
         const apiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : ""; 
-
         const classConfig = { 1: 6, 2: 7, 3: 7 };
-        const totalClasses = 20;
 
         let currentView = 'teacher';
         let adminStatType = 'daily'; 
@@ -262,7 +258,7 @@
         let teachersData = {};
         let unsubAttendance = null; 
 
-        // --- 기초 데이터 (내장) ---
+        // --- Data Strings ---
         const defaultTeacherText = `학년,반,담임\n1학년,1반,김현정\n1학년,2반,류제원\n1학년,3반,고경미\n1학년,4반,고재덕\n1학년,5반,김지수\n1학년,6반,유지연\n2학년,1반,최미리\n2학년,2반,장영화\n2학년,3반,신선경\n2학년,4반,김용진\n2학년,5반,유지혜\n2학년,6반,박은정\n2학년,7반,강슬기\n3학년,1반,김혜미\n3학년,2반,남송현\n3학년,3반,이소진\n3학년,4반,권민지\n3학년,5반,김성년\n3학년,6반,김병희\n3학년,7반,이명진`;
         const defaultStudentText = `학번,이름
 10101,권기백
@@ -550,82 +546,70 @@
 30711,임성빈
 30712,조남훈`;
 
-        // --- App Logic ---
+        // --- Initialize ---
         async function init() {
-            try {
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-                
-                const offset = new Date().getTimezoneOffset() * 60000;
-                todayRealStr = (new Date(Date.now() - offset)).toISOString().slice(0, 10);
-                setDateVariables(todayRealStr);
+            // 1. UI 및 데이터 즉시 파싱 (네트워크 무관)
+            const offset = new Date().getTimezoneOffset() * 60000;
+            todayRealStr = (new Date(Date.now() - offset)).toISOString().slice(0, 10);
+            allStudents = parseStudentCSV(defaultStudentText);
+            teachersData = parseTeacherCSV(defaultTeacherText);
+            setDateVariables(todayRealStr);
+            
+            // 2. 화면 먼저 띄우기
+            switchView('teacher');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
 
-                // 안전한 Firebase 초기화
+            // 3. Firebase는 백그라운드에서 시도
+            try {
                 if (typeof __firebase_config !== 'undefined') {
-                    const config = JSON.parse(__firebase_config);
-                    app = initializeApp(config);
+                    const cfg = JSON.parse(__firebase_config);
+                    app = initializeApp(cfg);
                     auth = getAuth(app);
                     db = getFirestore(app);
-
+                    
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
-
                     onAuthStateChanged(auth, (u) => {
                         user = u;
                         if (user) subscribeToAttendance();
                     });
                 }
-            } catch (e) {
-                console.error("Initialization failed, running in local mode", e);
-            }
-
-            allStudents = parseStudentCSV(defaultStudentText);
-            teachersData = parseTeacherCSV(defaultTeacherText);
-            switchView('teacher');
+            } catch (e) { console.warn("Firebase Offline Mode"); }
         }
 
+        // --- Functions ---
         window.switchView = (view) => {
             currentView = view;
-            const vt = document.getElementById('view-teacher');
-            const va = document.getElementById('view-admin');
+            document.getElementById('view-teacher').classList.toggle('hidden', view !== 'teacher');
+            document.getElementById('view-admin').classList.toggle('hidden', view !== 'admin');
             const bt = document.getElementById('btn-teacher');
             const ba = document.getElementById('btn-admin');
-
-            if (vt) vt.classList.toggle('hidden', view !== 'teacher');
-            if (va) va.classList.toggle('hidden', view !== 'admin');
-
-            if (bt) bt.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='teacher'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
-            if (ba) ba.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='admin'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
-            
+            bt.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='teacher'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
+            ba.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='admin'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
             if (view === 'admin') updateAdminStats();
             else renderStudents();
         };
 
         window.setGrade = (g) => {
-            selectedGrade = g;
-            selectedClass = null;
+            selectedGrade = g; selectedClass = null;
+            renderClassButtons(); updateSelectionUI(); resetStudentContainer();
             document.getElementById('ai-cheer-message').classList.add('hidden');
-            renderClassButtons();
-            updateSelectionUI();
-            resetStudentContainer();
         };
 
         window.setClass = (c) => {
-            selectedClass = c;
+            selectedClass = c; updateSelectionUI(); renderStudents();
             document.getElementById('ai-cheer-message').classList.add('hidden');
-            updateSelectionUI();
-            renderStudents();
         };
 
         function renderClassButtons() {
             const container = document.getElementById('class-grid');
-            if (!container) return;
             container.innerHTML = '';
             for (let i = 1; i <= classConfig[selectedGrade]; i++) {
                 const btn = document.createElement('button');
-                btn.className = 'class-btn px-2 py-3 border rounded-xl font-bold md:text-lg transition-all hover:bg-slate-50';
+                btn.className = 'class-btn px-2 py-3 border rounded-xl font-bold md:text-lg hover:bg-slate-50 transition-all';
                 btn.textContent = `${i}반`;
                 btn.onclick = () => setClass(i);
                 btn.dataset.class = i;
@@ -638,36 +622,28 @@
                 const g = parseInt(b.dataset.grade);
                 b.classList.toggle('bg-indigo-600', g === selectedGrade);
                 b.classList.toggle('text-white', g === selectedGrade);
-                b.classList.toggle('border-indigo-600', g === selectedGrade);
             });
             document.querySelectorAll('.class-btn').forEach(b => {
                 const c = parseInt(b.dataset.class);
                 b.classList.toggle('bg-indigo-600', c === selectedClass);
                 b.classList.toggle('text-white', c === selectedClass);
-                b.classList.toggle('border-indigo-600', c === selectedClass);
             });
         }
 
         function resetStudentContainer() {
-            document.getElementById('no-class-selected').classList.remove('hidden');
-            document.getElementById('student-container').classList.add('hidden');
-            document.getElementById('class-info-card').classList.add('hidden');
+            document.getElementById('no-class-selected').classList.toggle('hidden', !!selectedClass);
+            document.getElementById('student-container').classList.toggle('hidden', !selectedClass);
+            document.getElementById('class-info-card').classList.toggle('hidden', !selectedClass);
         }
 
-        // --- Date Control ---
         function setDateVariables(dateString) {
-            currentDateStr = dateString;
-            currentMonthStr = dateString.substring(0, 7);
+            currentDateStr = dateString; currentMonthStr = dateString.substring(0, 7);
             const dateObj = new Date(dateString);
             const days = ['일', '월', '화', '수', '목', '금', '토'];
             document.getElementById('current-date-display').textContent = `${dateString.replace(/-/g, '.')} (${days[dateObj.getDay()]})`;
             document.getElementById('date-selector').value = dateString;
-            
-            const btnPlus = document.getElementById('btn-day-plus');
-            if (btnPlus) {
-                btnPlus.disabled = dateString >= todayRealStr;
-                btnPlus.classList.toggle('opacity-30', dateString >= todayRealStr);
-            }
+            document.getElementById('btn-day-plus').disabled = dateString >= todayRealStr;
+            document.getElementById('btn-day-plus').classList.toggle('opacity-30', dateString >= todayRealStr);
             document.getElementById('date-warning').classList.toggle('hidden', dateString === todayRealStr);
             document.getElementById('btn-today').classList.toggle('hidden', dateString === todayRealStr);
         }
@@ -675,270 +651,180 @@
         window.adjustDate = (unit, delta) => {
             const dateObj = new Date(currentDateStr);
             dateObj.setDate(dateObj.getDate() + delta);
-            const nextStr = dateObj.toISOString().slice(0, 10);
-            if (nextStr <= todayRealStr) changeDate(nextStr);
+            const next = dateObj.toISOString().slice(0, 10);
+            if (next <= todayRealStr) changeDate(next);
         };
 
         window.changeDate = (newDate) => {
-            const oldMonth = currentMonthStr;
+            const oldM = currentMonthStr;
             setDateVariables(newDate);
-            if (currentMonthStr !== oldMonth && user && db) subscribeToAttendance();
+            if (oldM !== currentMonthStr && user && db) subscribeToAttendance();
             else refreshView();
         };
 
-        function refreshView() {
-            if (currentView === 'teacher') renderStudents(); 
-            else updateAdminStats();
-        }
-
         window.goToToday = () => changeDate(todayRealStr);
 
-        // --- Teacher Logic ---
         function renderStudents() {
             if (!selectedGrade || !selectedClass) return;
-            document.getElementById('no-class-selected').classList.add('hidden');
-            document.getElementById('student-container').classList.remove('hidden');
-            document.getElementById('class-info-card').classList.remove('hidden');
-            
-            const teacherName = teachersData[`${selectedGrade}_${selectedClass}`] || '미배정';
-            document.getElementById('selected-class-title').innerHTML = `${selectedGrade}학년 ${selectedClass}반 <span class="text-sm font-normal text-slate-500 ml-1">(담임: ${teacherName})</span>`;
-            
+            resetStudentContainer();
+            const teacher = teachersData[`${selectedGrade}_${selectedClass}`] || '미배정';
+            document.getElementById('selected-class-title').innerHTML = `${selectedGrade}학년 ${selectedClass}반 <span class="text-xs font-normal text-slate-500 ml-1">(담임: ${teacher})</span>`;
             const maxP = selectedGrade === 3 ? 4 : 3;
             document.getElementById('period-info-text').textContent = `${selectedGrade}학년은 ${maxP}차시까지 운영됩니다.`;
-
-            const grid = document.getElementById('student-grid');
-            grid.innerHTML = '';
+            
+            const grid = document.getElementById('student-grid'); grid.innerHTML = '';
             const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
-            const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-            const curData = attendanceData[docId] || {};
+            const data = attendanceData[`${currentDateStr}_${selectedGrade}_${selectedClass}`] || {};
 
             students.forEach(s => {
-                const data = curData[s.id] || { p1: 0, p2: 0, p3: 0, p4: 0 };
+                const sData = data[s.id] || { p1: 0, p2: 0, p3: 0, p4: 0 };
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-slate-100 rounded-xl p-2 px-3 shadow-sm flex items-center justify-between gap-2';
-                
                 let btns = '';
                 for (let p = 1; p <= maxP; p++) {
-                    const status = data[`p${p}`];
-                    const sClass = status === 1 ? 'status-present' : (status === 2 ? 'status-absent' : 'status-none');
-                    const sText = status === 1 ? '출' : (status === 2 ? '결' : '-');
-                    btns += `
-                        <div class="flex flex-col items-center">
-                            <span class="text-[10px] font-bold text-slate-400 mb-1">${p}차</span>
-                            <button onclick="toggleStatus('${s.id}', ${p})" class="w-9 h-9 rounded-lg border-2 font-bold text-sm flex items-center justify-center transition-all ${sClass}">${sText}</button>
-                        </div>`;
+                    const st = sData[`p${p}`];
+                    const cls = st === 1 ? 'status-present' : (st === 2 ? 'status-absent' : 'status-none');
+                    const txt = st === 1 ? '출' : (st === 2 ? '결' : '-');
+                    btns += `<div class="flex flex-col items-center">
+                        <span class="text-[10px] font-bold text-slate-400 mb-1">${p}차</span>
+                        <button onclick="toggleStatus('${s.id}', ${p})" class="w-9 h-9 rounded-lg border-2 font-bold text-sm flex items-center justify-center transition-all ${cls}">${txt}</button>
+                    </div>`;
                 }
-                card.innerHTML = `<div class="flex-1"><span class="text-[11px] text-slate-400 font-bold">${s.no}번</span><br><span class="text-base font-bold">${s.name}</span></div><div class="flex gap-1">${btns}</div>`;
+                card.innerHTML = `<div class="flex-1 leading-tight"><span class="text-[11px] text-slate-400 font-bold">${s.no}번</span><br><span class="text-base font-bold">${s.name}</span></div><div class="flex gap-1">${btns}</div>`;
                 grid.appendChild(card);
             });
-            updateClassSummary(students, curData, maxP);
+            updateSummary(students, data, maxP);
         }
 
-        window.toggleStatus = async (studentId, period) => {
+        window.toggleStatus = async (id, p) => {
             const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
             const curData = attendanceData[docId] || {};
-            const sData = curData[studentId] || { p1: 0, p2: 0, p3: 0, p4: 0 };
-            const newStatus = (sData[`p${period}`] + 1) % 3;
-            sData[`p${period}`] = newStatus;
-            
+            const sData = curData[id] || { p1:0, p2:0, p3:0, p4:0 };
+            const next = (sData[`p${p}`] + 1) % 3;
+            sData[`p${p}`] = next;
             const maxP = selectedGrade === 3 ? 4 : 3;
-            
-            // 핵심 로직: 결석(2)이거나 초기화(0)일 경우 이후 차시 자동 반영
-            if (newStatus === 2 || newStatus === 0) {
-                for (let i = period + 1; i <= maxP; i++) sData[`p${i}`] = newStatus;
+            // 결석(2) 또는 미기입(0) 전환 시 이후 차시 자동 초기화/반영
+            if (next === 2 || next === 0) {
+                for (let i = p + 1; i <= maxP; i++) sData[`p${i}`] = next;
             }
-
-            curData[studentId] = sData;
-            attendanceData[docId] = curData;
-            renderStudents();
-            await saveAttendance(docId, curData);
+            curData[id] = sData; attendanceData[docId] = curData; renderStudents();
+            await saveDoc(docId, curData);
         };
 
         window.clearAllAttendance = async () => {
-            if (!confirm(`${selectedGrade}학년 ${selectedClass}반 기록을 초기화하시겠습니까?`)) return;
+            if (!confirm("이 반의 오늘 기록을 모두 지우시겠습니까?")) return;
             const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-            const emptyData = {};
-            const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
-            students.forEach(s => { emptyData[s.id] = { p1: 0, p2: 0, p3: 0, p4: 0 }; });
-            attendanceData[docId] = emptyData;
-            renderStudents();
-            await saveAttendance(docId, emptyData);
+            const empty = {};
+            allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass).forEach(s => { empty[s.id] = { p1:0, p2:0, p3:0, p4:0 }; });
+            attendanceData[docId] = empty; renderStudents(); await saveDoc(docId, empty);
         };
 
-        async function saveAttendance(docId, data) {
-            if (!db || !user) return showToast("오프라인 모드입니다.");
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', `attendance_${currentMonthStr}`, docId);
-                await setDoc(docRef, { data }, { merge: true });
-                showToast("저장되었습니다.");
-            } catch (e) { showToast("저장 실패", "error"); }
+        async function saveDoc(docId, data) {
+            if (!db || !user) return;
+            try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `attendance_${currentMonthStr}`, docId), { data }, { merge: true }); }
+            catch (e) { showToast("저장 실패", "error"); }
         }
 
-        function updateClassSummary(students, data, maxP) {
-            const container = document.getElementById('class-stats-container');
-            if (!container) return;
-            container.innerHTML = '';
+        function updateSummary(students, data, maxP) {
+            const container = document.getElementById('class-stats-container'); container.innerHTML = '';
             for (let p = 1; p <= maxP; p++) {
                 const count = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
-                const percent = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
+                const per = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
                 const row = document.createElement('div');
-                row.className = 'text-sm text-indigo-800 flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg border border-indigo-100/50 shadow-sm';
-                row.innerHTML = `<span class="font-bold">${p}차시</span><span class="font-extrabold text-indigo-900">${count} / ${students.length}명 <span class="text-xs text-indigo-600 font-semibold ml-1">(${percent}%)</span></span>`;
+                row.className = 'text-xs md:text-sm text-indigo-800 flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg border border-indigo-100 shadow-sm';
+                row.innerHTML = `<span class="font-bold">${p}차시</span><span class="font-extrabold">${count} / ${students.length}명 <span class="text-indigo-600 font-semibold">(${per}%)</span></span>`;
                 container.appendChild(row);
             }
         }
 
-        // --- Admin Logic ---
         function updateAdminStats() {
-            const tableBody = document.getElementById('admin-table-body');
-            if (!tableBody) return;
-            tableBody.innerHTML = '';
-            let gradeStats = { 1: { p:0, t:0 }, 2: { p:0, t:0 }, 3: { p:0, t:0 } };
-            let totalRecorded = 0;
-            const isMonthly = adminStatType === 'monthly';
+            const body = document.getElementById('admin-table-body'); body.innerHTML = '';
+            let recorded = 0; let totalP = 0, totalT = 0;
+            const isM = adminStatType === 'monthly';
 
             for (let g = 1; g <= 3; g++) {
                 for (let c = 1; c <= classConfig[g]; c++) {
                     const students = allStudents.filter(s => s.grade === g && s.class === c);
                     const maxP = g === 3 ? 4 : 3;
-                    let pCounts = [0,0,0,0], classDenom = 0, records = [];
+                    let pCounts = [0,0,0,0], records = [];
+                    if (isM) Object.keys(attendanceData).forEach(k => { if (k.endsWith(`_${g}_${c}`)) records.push(attendanceData[k]); });
+                    else { if (attendanceData[`${currentDateStr}_${g}_${c}`]) records.push(attendanceData[`${currentDateStr}_${g}_${c}`]); }
 
-                    if (isMonthly) {
-                        Object.keys(attendanceData).forEach(k => { if (k.endsWith(`_${g}_${c}`)) records.push(attendanceData[k]); });
-                    } else {
-                        const dId = `${currentDateStr}_${g}_${c}`;
-                        if (attendanceData[dId]) records.push(attendanceData[dId]);
-                    }
-
-                    if (records.length > 0) totalRecorded++;
+                    if (records.length > 0) recorded++;
                     records.forEach(rd => {
                         students.forEach(s => { for (let i=0; i<maxP; i++) if (rd[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; });
-                        classDenom += students.length * maxP;
                     });
 
                     const pSum = pCounts.reduce((a,b)=>a+b, 0);
-                    const per = classDenom > 0 ? (pSum / classDenom * 100).toFixed(1) : "0.0";
+                    const cDenom = students.length * maxP * records.length;
+                    const per = cDenom > 0 ? (pSum / cDenom * 100).toFixed(1) : "0.0";
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-slate-50 cursor-pointer';
                     row.onclick = () => { switchView('teacher'); setGrade(g); setClass(c); };
                     row.innerHTML = `
                         <td class="px-5 py-4 font-bold">${g}-${c}</td>
                         <td class="px-5 py-4 text-slate-600">${teachersData[`${g}_${c}`] || '-'}</td>
-                        <td class="px-5 py-4 text-slate-500">${isMonthly ? (students.length * records.length) : students.length}</td>
+                        <td class="px-5 py-4 text-slate-500">${students.length}</td>
                         <td class="px-5 py-4 text-center font-bold">${pCounts[0]}</td><td class="px-5 py-4 text-center font-bold">${pCounts[1]}</td><td class="px-5 py-4 text-center font-bold">${pCounts[2]}</td><td class="px-5 py-4 text-center ${g<3?'text-slate-200':''}">${g===3?pCounts[3]:'-'}</td>
                         <td class="px-5 py-4 text-right font-bold text-indigo-600">${per}%</td>`;
-                    tableBody.appendChild(row);
-                    gradeStats[g].p += pSum; gradeStats[g].t += classDenom;
+                    body.appendChild(row);
+                    totalP += pSum; totalT += cDenom;
                 }
             }
-
-            const grandP = Object.values(gradeStats).reduce((s,v)=>s+v.p, 0);
-            const grandT = Object.values(gradeStats).reduce((s,v)=>s+v.t, 0);
-            const overall = grandT > 0 ? (grandP / grandT * 100).toFixed(1) : 0;
+            const overall = totalT > 0 ? (totalP / totalT * 100).toFixed(1) : 0;
             document.getElementById('admin-total-percent').textContent = `${overall}%`;
             document.getElementById('admin-total-progress').style.width = `${overall}%`;
-            document.getElementById('recorded-classes-count').textContent = totalRecorded;
-            for (let g=1; g<=3; g++) {
-                const p = gradeStats[g].t > 0 ? (gradeStats[g].p / gradeStats[g].t * 100) : 0;
-                document.getElementById(`bar-g${g}`).style.height = `${p}%`;
-                document.getElementById(`label-g${g}`).textContent = `${p.toFixed(1)}%`;
-            }
+            document.getElementById('recorded-classes-count').textContent = recorded;
         }
 
-        window.setStatType = (t) => {
-            adminStatType = t;
-            updateAdminStats();
-        };
+        window.setStatType = (t) => { adminStatType = t; updateAdminStats(); };
 
-        // --- AI ---
+        // --- AI & Helpers ---
         window.generateCheerMessage = async () => {
-            const box = document.getElementById('ai-cheer-message');
-            box.classList.remove('hidden');
-            box.innerHTML = '<div class="animate-pulse">AI가 응원 문구를 생각하는 중...</div>';
-            const prompt = `${selectedGrade}학년 ${selectedClass}반 학생들이 야간 자율학습 중입니다. 따뜻하고 위트있는 응원 메시지 한 줄 써주세요.`;
+            const box = document.getElementById('ai-cheer-message'); box.classList.remove('hidden'); box.innerHTML = "AI가 작성 중...";
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `${selectedGrade}학년 ${selectedClass}반 학생들에게 전할 유머러스하고 따뜻한 야자 응원 메시지 한 줄!` }] }] })
                 });
-                const json = await res.json();
-                box.innerHTML = `💬 ${json.candidates[0].content.parts[0].text}`;
-            } catch (e) { box.innerHTML = "열심히 공부하는 여러분을 응원합니다! ✍️"; }
+                const json = await res.json(); box.innerHTML = `💬 ${json.candidates[0].content.parts[0].text}`;
+            } catch (e) { box.innerHTML = "오늘도 최선을 다하는 여러분이 자랑스럽습니다! 🔥"; }
         };
 
         window.generateAIBriefing = async () => {
-            const modal = document.getElementById('ai-modal');
-            const content = document.getElementById('ai-content');
-            modal.classList.remove('hidden');
-            content.innerHTML = '<div class="text-center py-10 animate-spin"><i data-lucide="loader-2"></i></div>';
+            const modal = document.getElementById('ai-modal'); const content = document.getElementById('ai-content');
+            modal.classList.remove('hidden'); content.innerHTML = "데이터 분석 중...";
             const stats = document.getElementById('admin-total-percent').innerText;
-            const prompt = `오늘 우리 학교 자율학습 참여율은 ${stats}입니다. 교직원 보고용 브리핑을 3문장 이내로 격식있게 작성해주세요.`;
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `현재 자율학습 참여율이 ${stats}입니다. 교직원 보고용 브리핑 문구를 격식있고 긍정적으로 3줄 작성해줘.` }] }] })
                 });
-                const json = await res.json();
-                content.innerHTML = `<div id="ai-text-result" class="whitespace-pre-wrap">${json.candidates[0].content.parts[0].text}</div>`;
-            } catch (e) { content.innerHTML = "보고서를 생성할 수 없습니다. (API 키 확인 필요)"; }
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+                const json = await res.json(); content.innerHTML = `<div id="ai-text-result" class="whitespace-pre-wrap">${json.candidates[0].content.parts[0].text}</div>`;
+            } catch (e) { content.innerHTML = "보고서를 생성할 수 없습니다."; }
         };
 
         window.closeAIModal = () => document.getElementById('ai-modal').classList.add('hidden');
-        window.copyAIText = () => {
-            const txt = document.getElementById('ai-text-result')?.innerText;
-            if (txt) { 
-                const el = document.createElement('textarea');
-                el.value = txt; document.body.appendChild(el);
-                el.select(); document.execCommand('copy');
-                document.body.removeChild(el);
-                showToast("복사되었습니다.");
-            }
-        };
+        window.copyAIText = () => { const txt = document.getElementById('ai-text-result')?.innerText; if(txt) { navigator.clipboard.writeText(txt); showToast("복사됨"); } };
 
-        // --- Helpers ---
-        function parseStudentCSV(t) {
-            return t.trim().split('\n').slice(1).map(l => {
-                const [h, n] = l.split(',');
-                const hs = h.trim();
-                if (hs.length === 5) return { id: hs, grade: parseInt(hs[0]), class: parseInt(hs.substring(1, 3)), no: parseInt(hs.substring(3, 5)), name: n.trim() };
-            }).filter(Boolean);
-        }
-        function parseTeacherCSV(t) {
-            const obj = {};
-            t.trim().split('\n').slice(1).forEach(l => {
-                const parts = l.split(',');
-                if (parts.length >= 3) {
-                    const g = parseInt(parts[0].match(/\d+/)[0]);
-                    const c = parseInt(parts[1].match(/\d+/)[0]);
-                    obj[`${g}_${c}`] = parts[2].trim();
-                }
-            });
-            return obj;
-        }
+        function parseStudentCSV(t) { return t.trim().split('\n').slice(1).map(l => { const [h, n] = l.split(','); const hs = h.trim(); if (hs.length === 5) return { id: hs, grade: parseInt(hs[0]), class: parseInt(hs.substring(1, 3)), no: parseInt(hs.substring(3, 5)), name: n.trim() }; }).filter(Boolean); }
+        function parseTeacherCSV(t) { const obj = {}; t.trim().split('\n').slice(1).forEach(l => { const p = l.split(','); if (p.length >= 3) { const g = parseInt(p[0].match(/\d+/)[0]); const c = parseInt(p[1].match(/\d+/)[0]); obj[`${g}_${c}`] = p[2].trim(); } }); return obj; }
         function subscribeToAttendance() {
             if (unsubAttendance) unsubAttendance();
             unsubAttendance = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', `attendance_${currentMonthStr}`), s => {
-                attendanceData = {};
-                s.forEach(d => attendanceData[d.id] = d.data().data || {});
-                refreshView();
+                attendanceData = {}; s.forEach(d => attendanceData[d.id] = d.data().data || {});
+                if (currentView === 'teacher') renderStudents(); else updateAdminStats();
             });
         }
-        function showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); }
         function showToast(m, type="success") {
-            const t = document.getElementById('toast');
-            document.getElementById('toast-message').textContent = m;
-            const container = document.getElementById('toast-icon-container');
-            container.innerHTML = type === 'success' ? '<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>' : '<i data-lucide="alert-circle" class="w-5 h-5 text-rose-400"></i>';
+            const t = document.getElementById('toast'); document.getElementById('toast-message').textContent = m;
+            document.getElementById('toast-icon-container').innerHTML = `<i data-lucide="${type==='success'?'check-circle-2':'alert-circle'}" class="w-5 h-5 ${type==='success'?'text-emerald-400':'text-rose-400'}"></i>`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            t.classList.remove('translate-y-20');
-            setTimeout(() => t.classList.add('translate-y-20'), 2000);
+            t.classList.remove('translate-y-20'); setTimeout(() => t.classList.add('translate-y-20'), 2000);
         }
 
         window.exportToExcel = () => {
-            const dateObj = new Date(currentDateStr);
-            const days = ['일', '월', '화', '수', '목', '금', '토'];
-            const formattedDate = `${dateObj.getFullYear()}. ${dateObj.getMonth() + 1}. ${dateObj.getDate()}. (${days[dateObj.getDay()]})`;
+            const formattedDate = currentDateStr.replace(/-/g, '.');
             let rowsHtml = '';
             for (let c = 1; c <= 7; c++) {
                 rowsHtml += '<tr><td></td>';
@@ -946,8 +832,7 @@
                     if (c <= classConfig[g]) {
                         const students = allStudents.filter(s => s.grade === g && s.class === c);
                         const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
-                        let p = [0,0,0,0];
-                        students.forEach(s => { for(let i=0; i<4; i++) if (data[s.id]?.[`p${i+1}`] === 1) p[i]++; });
+                        let p = [0,0,0,0]; students.forEach(s => { for(let i=0; i<4; i++) if (data[s.id]?.[`p${i+1}`] === 1) p[i]++; });
                         rowsHtml += `<td style="border:0.5pt solid black;">${c}</td><td style="border:0.5pt solid black;">${students.length}</td><td style="border:0.5pt solid black;">${p[0]}</td><td style="border:0.5pt solid black;">${p[1]}</td><td style="border:0.5pt solid black;">${p[2]}</td><td style="border:0.5pt solid black;">${g===3?p[3]:''}</td>`;
                     } else rowsHtml += '<td colspan="6" style="border:0.5pt solid black;"></td>';
                 }
@@ -955,12 +840,9 @@
             }
             const html = `<html><head><meta charset="utf-8"><style>table{border-collapse:collapse;text-align:center;}</style></head><body><table><tr><td colspan="19" style="text-align:center; font-size:16pt; font-weight:bold;">배정고 자율학습 참여현황 (${formattedDate})</td></tr>${rowsHtml}</table></body></html>`;
             const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `참여현황_${currentDateStr}.xls`; a.click();
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `참여현황_${currentDateStr}.xls`; a.click();
         };
 
-        // 초기 실행
         init();
     </script>
 </body>
