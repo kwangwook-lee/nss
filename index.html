@@ -899,22 +899,25 @@ async function clearAllAttendance() {
 }
 
 // ── 사이드 요약 ───────────────────────────────────────────────────────────────
+// 미처리(0)는 결석으로 간주 → 출석(1)인 경우만 출석 인원으로 집계
 function updateSummary(students, data) {
     const container = document.getElementById('class-stats-container');
     if (!container) return;
     container.innerHTML = '';
     for (let p = 1; p <= CONFIG.maxPeriods; p++) {
-        const count = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
-        const per   = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
-        const row   = document.createElement('div');
+        // status === 1 만 출석, 0(미처리) · 2(결석) 모두 결석 처리
+        const present = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
+        const per     = students.length > 0 ? Math.round((present / students.length) * 100) : 0;
+        const row     = document.createElement('div');
         row.className = 'text-xs md:text-sm text-indigo-800 flex justify-between items-center bg-white/60 px-4 py-2.5 rounded-xl border border-indigo-100 shadow-sm';
         row.innerHTML = `<span class='font-bold'>${p}차시</span>
-            <span class='font-black'>${count}명 <span class="text-[10px] text-indigo-500 font-bold ml-1">${per}%</span></span>`;
+            <span class='font-black'>${present}명 <span class="text-[10px] text-indigo-500 font-bold ml-1">${per}%</span></span>`;
         container.appendChild(row);
     }
 }
 
 // ── 관리자 통계 ───────────────────────────────────────────────────────────────
+// 미처리(0)는 결석으로 간주 → 출석(1)인 경우만 출석 인원으로 집계
 function updateAdminStats() {
     const body = document.getElementById('admin-table-body');
     if (!body) return;
@@ -930,7 +933,8 @@ function updateAdminStats() {
             const pCounts = [0,0,0,0];
             students.forEach(s => {
                 for (let i = 0; i < CONFIG.maxPeriods; i++)
-                    if (data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++;
+                    // status === 1 만 출석, 0(미처리) · 2(결석) 모두 결석으로 처리
+                    if ((data[s.id]?.[`p${i+1}`] ?? 0) === 1) pCounts[i]++;
             });
             const pSum       = pCounts.reduce((a,b) => a+b, 0);
             const classTotal = students.length * CONFIG.maxPeriods;
@@ -1014,6 +1018,7 @@ function parseTeacherCSV(t) {
 }
 
 // ── 엑셀 다운로드 ─────────────────────────────────────────────────────────────
+// 미처리(0)는 결석으로 간주 → 출석(1)인 경우만 출석 인원으로 집계
 function exportToExcel() {
     const formattedDate = currentDateStr.replace(/-/g, '.');
     const maxClass  = Math.max(...Object.values(CONFIG.classes));
@@ -1029,7 +1034,7 @@ function exportToExcel() {
         headerLabel += '<td style="border:0.5pt solid black;text-align:center;">반</td>';
         headerLabel += '<td style="border:0.5pt solid black;text-align:center;">재적</td>';
         for (let p = 1; p <= CONFIG.maxPeriods; p++)
-            headerLabel += `<td style="border:0.5pt solid black;text-align:center;">${p}차</td>`;
+            headerLabel += `<td style="border:0.5pt solid black;text-align:center;">${p}차(출석)</td>`;
     }
     headerLabel += '</tr>';
 
@@ -1040,8 +1045,9 @@ function exportToExcel() {
             if (c <= CONFIG.classes[g]) {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data     = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
+                // status === 1 만 출석, 0(미처리) · 2(결석) 모두 결석으로 처리
                 const pCounts  = Array.from({ length: CONFIG.maxPeriods }, (_, i) =>
-                    students.filter(s => data[s.id]?.[`p${i+1}`] === 1).length
+                    students.filter(s => (data[s.id]?.[`p${i+1}`] ?? 0) === 1).length
                 );
                 rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${c}</td>`;
                 rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${students.length}</td>`;
