@@ -139,14 +139,19 @@
                     </div>
 
                     <div id="student-container" class="hidden">
-                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <span class="text-sm font-semibold text-slate-500">안내:</span>
+                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-semibold text-slate-500 hidden md:inline">안내:</span>
                                 <div class="text-sm font-medium text-slate-600" id="period-info-text">
                                     -
                                 </div>
                             </div>
-                            <div class="text-xs text-slate-400 italic font-semibold bg-slate-50 px-3 py-1 rounded-full border border-slate-100 hidden sm:block">터치: 미기입 → 출결전환</div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                <div class="text-[11px] md:text-xs text-slate-400 font-semibold bg-slate-50 px-2 md:px-3 py-1.5 rounded-lg border border-slate-100">터치: 미기입 → 출석 → 결석</div>
+                                <button onclick="clearAllAttendance()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm no-scale">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 모두 지우기
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- 확실한 3열 배치 (lg:grid-cols-3) 적용 -->
@@ -1105,10 +1110,17 @@
             const newStatus = (sData[`p${period}`] + 1) % 3;
             sData[`p${period}`] = newStatus;
             
+            const maxPeriod = selectedGrade === 3 ? 4 : 3;
+            
             if (newStatus === 2) {
-                const maxPeriod = selectedGrade === 3 ? 4 : 3;
+                // 결석(2) 처리 시 이후 차시들도 자동 결석 처리
                 for (let nextP = period + 1; nextP <= maxPeriod; nextP++) {
                     sData[`p${nextP}`] = 2;
+                }
+            } else if (newStatus === 0) {
+                // 미기입(0)으로 되돌릴 시 이후 차시들도 자동 미기입 처리(초기화)
+                for (let nextP = period + 1; nextP <= maxPeriod; nextP++) {
+                    sData[`p${nextP}`] = 0;
                 }
             }
 
@@ -1125,6 +1137,37 @@
                 } catch (e) { showToast("저장 실패", "error"); }
             } else {
                 showToast("기록됨 (로컬모드)");
+            }
+        };
+
+        window.clearAllAttendance = async () => {
+            if (!selectedGrade || !selectedClass) return;
+            if (!confirm(`${selectedGrade}학년 ${selectedClass}반의 현재 날짜(${currentDateStr}) 출결 기록을 모두 초기화하시겠습니까?`)) return;
+
+            const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
+            const currentClassData = attendanceData[docId] || {};
+            
+            const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
+            
+            // 모든 학생의 1~4차시를 0(미기입)으로 초기화
+            students.forEach(student => {
+                currentClassData[student.id] = { p1: 0, p2: 0, p3: 0, p4: 0 };
+            });
+
+            attendanceData[docId] = currentClassData;
+            renderStudents();
+
+            if (db && user) {
+                const collectionPath = `attendance_${currentMonthStr}`;
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionPath, docId);
+                try {
+                    await setDoc(docRef, { data: currentClassData }, { merge: true });
+                    showToast("모두 지워졌습니다.", "success");
+                } catch (e) { 
+                    showToast("초기화 실패", "error"); 
+                }
+            } else {
+                showToast("모두 지워졌습니다. (로컬모드)", "success");
             }
         };
 
