@@ -11,172 +11,158 @@
         body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
         .touch-target { min-height: 48px; min-width: 48px; }
         .status-present { background-color: #dcfce7; color: #166534; border-color: #86efac; }
-        .status-absent { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-        .status-none { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+        .status-absent  { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .status-none    { background-color: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
         button:active { transform: scale(0.95); }
         .no-scale:active { transform: none; }
         input[type="date"]::-webkit-calendar-picker-indicator {
-            background: transparent;
-            bottom: 0;
-            color: transparent;
-            cursor: pointer;
-            height: auto;
-            left: 0;
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: auto;
+            background: transparent; bottom: 0; color: transparent; cursor: pointer;
+            height: auto; left: 0; position: absolute; right: 0; top: 0; width: auto;
         }
+        /* 토스트 */
+        #toast {
+            position: fixed; bottom: 1rem; right: 1rem;
+            padding: 0.75rem 1.5rem; border-radius: 0.75rem;
+            color: #fff; font-size: 0.875rem; font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            transform: translateY(6rem); transition: transform 0.3s ease; z-index: 9999;
+        }
+        #toast.show { transform: translateY(0); }
     </style>
 </head>
 <body class="min-h-screen text-slate-900 relative">
-    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6 pb-20">
-        <!-- Header -->
-        <header class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2 text-indigo-700 shrink-0">
-                <i data-lucide="calendar-check" class="w-6 h-6"></i>
-                야간 자율학습
-            </h1>
-            
-            <div class="flex flex-col md:flex-row items-center justify-between xl:justify-end w-full gap-4">
-                <!-- 날짜 선택기 -->
-                <div class="flex items-center w-full md:w-auto justify-between md:justify-start">
-                    <div class="flex items-center bg-slate-100 p-1.5 rounded-xl shrink-0">
-                        <button onclick="adjustDate('day', -1)" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                        <div class="relative flex items-center justify-center px-2 md:px-4 h-10 hover:bg-white hover:shadow-sm rounded-lg transition-all cursor-pointer">
-                            <input type="date" id="date-selector" onchange="changeDate(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                            <span id="current-date-display" class="text-sm md:text-base font-bold text-slate-800 pointer-events-none whitespace-nowrap">로딩 중...</span>
-                        </div>
-                        <button onclick="adjustDate('day', 1)" id="btn-day-plus" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+<div id="app" class="max-w-7xl mx-auto p-4 md:p-6 pb-20">
+
+    <!-- Header -->
+    <header class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100">
+        <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2 text-indigo-700 shrink-0">
+            <i data-lucide="calendar-check"></i>
+            야간 자율학습
+        </h1>
+        <div class="flex flex-col md:flex-row items-center justify-between xl:justify-end w-full gap-4">
+            <div class="flex items-center w-full md:w-auto justify-between md:justify-start">
+                <div class="flex items-center bg-slate-100 p-1.5 rounded-xl shrink-0">
+                    <button id="btn-day-minus" onclick="adjustDate(-1)" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <div class="relative flex items-center justify-center px-2 md:px-4 h-10 hover:bg-white hover:shadow-sm rounded-lg transition-all cursor-pointer">
+                        <input type="date" id="date-selector" onchange="changeDate(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <span id="current-date-display" class="text-sm md:text-base font-bold text-slate-800 pointer-events-none whitespace-nowrap">로딩 중...</span>
                     </div>
-                    <div class="flex items-center gap-2 ml-3">
-                        <button id="btn-today" onclick="goToToday()" class="hidden no-scale px-3 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 text-sm font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 오늘
-                        </button>
-                        <span id="date-warning" class="hidden px-2.5 py-2 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-bold rounded-lg flex items-center gap-1 animate-pulse whitespace-nowrap">
-                            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> 과거 데이터
-                        </span>
-                    </div>
+                    <button id="btn-day-plus" onclick="adjustDate(1)" class="no-scale w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-slate-600 transition-all">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
                 </div>
-                
-                <!-- 탭 메뉴 -->
-                <div class="flex items-center bg-slate-100 p-1.5 rounded-xl shrink-0 w-full md:w-auto">
-                    <button id="btn-teacher" onclick="switchView('teacher')" class="no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all">교사(출석체크)</button>
-                    <button id="btn-admin" onclick="switchView('admin')" class="no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all">관리자(통계)</button>
+                <div class="flex items-center gap-2 ml-3">
+                    <button id="btn-today" onclick="goToToday()" class="hidden no-scale px-3 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 text-sm font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1.5">오늘</button>
+                    <span id="date-warning" class="hidden px-2.5 py-2 bg-rose-50 text-rose-600 border border-rose-100 text-xs font-bold rounded-lg flex items-center gap-1 animate-pulse">과거 데이터</span>
                 </div>
             </div>
-        </header>
+            <div class="flex items-center bg-slate-100 p-1.5 rounded-xl shrink-0 w-full md:w-auto">
+                <button id="btn-teacher" onclick="switchView('teacher')" class="no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all">교사(출석체크)</button>
+                <button id="btn-admin"   onclick="switchView('admin')"   class="no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all">관리자(통계)</button>
+            </div>
+        </div>
+    </header>
 
-        <!-- VIEW: TEACHER -->
-        <main id="view-teacher" class="hidden animate-in fade-in duration-500">
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div class="lg:col-span-1 space-y-4">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <label class="block text-sm font-bold text-slate-700 mb-4">반 선택</label>
-                        <div class="space-y-4">
-                            <div>
-                                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">학년</span>
-                                <div class="grid grid-cols-3 gap-2 mt-2">
-                                    <button onclick="setGrade(1)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all" data-grade="1">1</button>
-                                    <button onclick="setGrade(2)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all" data-grade="2">2</button>
-                                    <button onclick="setGrade(3)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all" data-grade="3">3</button>
-                                </div>
-                            </div>
-                            <div>
-                                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">반</span>
-                                <div id="class-grid" class="grid grid-cols-4 gap-2 mt-2"></div>
+    <!-- VIEW: TEACHER -->
+    <main id="view-teacher" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <label class="block text-sm font-bold text-slate-700 mb-4">반 선택</label>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">학년</span>
+                            <div class="grid grid-cols-3 gap-2 mt-2">
+                                <button onclick="setGrade(1)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all hover:bg-slate-50" data-grade="1">1</button>
+                                <button onclick="setGrade(2)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all hover:bg-slate-50" data-grade="2">2</button>
+                                <button onclick="setGrade(3)" class="grade-btn px-3 py-3 border rounded-xl font-bold transition-all hover:bg-slate-50" data-grade="3">3</button>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div id="class-info-card" class="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 hidden">
-                        <h3 class="font-bold text-indigo-900 mb-3" id="selected-class-title">학년 반</h3>
-                        <div id="class-stats-container" class="space-y-2 mb-4"></div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-3 space-y-4">
-                    <div id="no-class-selected" class="bg-white border-2 border-dashed border-slate-200 rounded-2xl h-96 flex flex-col items-center justify-center text-slate-400">
-                        <i data-lucide="mouse-pointer-2" class="w-12 h-12 mb-2"></i>
-                        <p>학년과 반을 선택해주세요.</p>
-                    </div>
-
-                    <div id="student-container" class="hidden">
-                        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                <span class="text-sm font-semibold text-slate-500 hidden md:inline">안내:</span>
-                                <div class="text-sm font-medium text-slate-600" id="period-info-text"></div>
-                            </div>
-                            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                                <button onclick="clearAllAttendance()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm no-scale">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 모두 지우기
-                                </button>
-                            </div>
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">반</span>
+                            <div id="class-grid" class="grid grid-cols-4 gap-2 mt-2"></div>
                         </div>
-                        
-                        <!-- 3열 레이아웃 고정 -->
-                        <div id="student-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                     </div>
                 </div>
-            </div>
-        </main>
-
-        <!-- VIEW: ADMIN -->
-        <main id="view-admin" class="hidden animate-in fade-in duration-500">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <p class="text-sm text-slate-500 mb-1 font-semibold">전체 참여율 (일간)</p>
-                    <span class="text-4xl font-extrabold text-slate-900 tracking-tight" id="admin-total-percent">0.0%</span>
-                </div>
-                <button onclick="exportToExcel()" class="no-scale px-6 py-3 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-all">
-                    <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> 참여현황 엑셀 다운로드
-                </button>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-5 border-b border-slate-100 bg-slate-50 font-bold">반별 상세 통계</div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-white text-slate-500 border-b">
-                            <tr>
-                                <th class="px-5 py-4">학급</th><th class="px-5 py-4">담임</th><th class="px-5 py-4">재적</th><th class="px-5 py-4 text-center">1차시</th><th class="px-5 py-4 text-center">2차시</th><th class="px-5 py-4 text-center">3차시</th><th class="px-5 py-4 text-center">4차시</th><th class="px-5 py-4 text-right">참여율</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-table-body" class="divide-y"></tbody>
-                    </table>
+                <div id="class-info-card" class="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 hidden">
+                    <h3 class="font-bold text-indigo-900 mb-3" id="selected-class-title">학년 반</h3>
+                    <div id="class-stats-container" class="space-y-2 mb-4"></div>
                 </div>
             </div>
-        </main>
 
-        <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg transform translate-y-20 transition-transform duration-300 z-50"></div>
-    </div>
+            <div class="lg:col-span-3 space-y-4">
+                <div id="no-class-selected" class="bg-white border-2 border-dashed border-slate-200 rounded-2xl h-96 flex flex-col items-center justify-center text-slate-400">
+                    <i data-lucide="mouse-pointer-2" class="w-12 h-12 mb-2"></i>
+                    <p>학년과 반을 선택해주세요.</p>
+                </div>
+                <div id="student-container" class="hidden">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-semibold text-slate-500 hidden md:inline">안내:</span>
+                            <div class="text-sm font-medium text-slate-600" id="period-info-text"></div>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <button onclick="clearAllAttendance()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm no-scale">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 모두 지우기
+                            </button>
+                        </div>
+                    </div>
+                    <div id="student-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+        </div>
+    </main>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+    <!-- VIEW: ADMIN -->
+    <main id="view-admin" class="hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <p class="text-sm text-slate-500 mb-1 font-semibold">전체 참여율 (일간)</p>
+                <span class="text-4xl font-extrabold text-slate-900 tracking-tight" id="admin-total-percent">0.0%</span>
+            </div>
+            <button onclick="exportToExcel()" class="no-scale px-6 py-3 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-all">
+                <i data-lucide="file-spreadsheet" class="w-5 h-5"></i> 엑셀 다운로드
+            </button>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-5 border-b border-slate-100 bg-slate-50 font-bold">반별 상세 통계</div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-white text-slate-500 border-b">
+                        <tr>
+                            <th class="px-5 py-4">학급</th>
+                            <th class="px-5 py-4">담임</th>
+                            <th class="px-5 py-4">재적</th>
+                            <th class="px-5 py-4 text-center">1차시</th>
+                            <th class="px-5 py-4 text-center">2차시</th>
+                            <th class="px-5 py-4 text-center">3차시</th>
+                            <th class="px-5 py-4 text-center">4차시</th>
+                            <th class="px-5 py-4 text-right">참여율</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-table-body" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 
-        // --- Core Configurations ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-attendance-v1';
-        const classConfig = { 1: 6, 2: 7, 3: 7 };
-        
-        let db, auth, user;
-        let currentView = 'teacher';
-        let selectedGrade = null;
-        let selectedClass = null;
-        let currentDateStr = '';
-        let currentMonthStr = '';
-        let todayRealStr = '';
-        let attendanceData = {};
-        let allStudents = [];
-        let teachersData = {};
-        let unsubAttendance = null;
+    <div id="toast"></div>
+</div>
 
-        // ============================================================================
-        // 👇👇👇 명렬표 데이터 (엑셀에서 복사해서 세로로 붙여넣으세요) 👇👇👇
-        // ============================================================================
-        
-        // 1. 담임 명렬표
-        const defaultTeacherText = `학년,반,담임
+<script type="module">
+import { initializeApp }                           from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+// ─── 상수 ──────────────────────────────────────────────────────────────────
+const APP_ID       = typeof __app_id !== 'undefined' ? __app_id : 'school-attendance-prod';
+const MAX_GRADE    = 3;
+const MAX_PERIOD   = 4;
+const CLASS_CONFIG = { 1: 6, 2: 7, 3: 7 }; // 학년별 반 수
+
+const defaultTeacherText = `학년,반,담임
 1학년,1반,김현정
 1학년,2반,류제원
 1학년,3반,고경미
@@ -198,9 +184,7 @@
 3학년,6반,김병희
 3학년,7반,이명진`;
 
-        // 2. 전체 학생 명단
-        const defaultStudentText = `학번,이름
-학번,이름
+const defaultStudentText = `학번,이름
 10101,권기백
 10102,김이현
 10103,박어진
@@ -235,120 +219,6 @@
 10215,유주영
 10216,윤단우
 10217,윤인성
-10218,이성재
-10301,강준서
-10302,길유빈
-10303,김건희
-10304,김대현
-10305,명예한
-10306,박민규
-10307,박준성
-10308,서정진
-10309,성진우
-10310,신인욱
-10311,심지훈
-10312,안정민
-10313,여태규
-10314,이경민
-10315,이우현
-10316,이준혁
-10317,장인호
-10318,최원호
-10401,구영은
-10402,권영찬
-10403,김도훈
-10404,김동준
-10405,김명진
-10406,김세원
-10407,김영준
-10408,나희성
-10409,민승기
-10410,박성민
-10411,박현수
-10412,변상호
-10413,왕건희
-10414,이재원
-10415,이정우
-10416,전성우
-10417,황현승
-10501,강규현
-10502,강민성
-10503,김대영
-10504,김준모
-10505,박준우
-10506,변준우
-10507,송현승
-10508,심윤우
-10509,양시우
-10510,유가온
-10511,유정민
-10512,이승원
-10513,이예성
-10514,이호찬
-10515,정민우
-10516,정희윤
-10517,조혜강
-10518,최진영
-10601,강성찬
-10602,김도훈
-10603,김재원
-10604,김준형
-10605,김지우
-10606,김지원
-10607,박준하
-10609,양윤제
-10610,엄규연
-10611,육건우
-10612,이규빈
-10613,장도윤
-10614,장석준
-10615,전상빈
-10616,정결
-10617,하주원
-10618,한승민
-20101,강동훈
-20102,김강민
-20103,김상헌
-20104,김준휘
-20105,문채준
-20106,박민재
-20107,방수한
-20108,신주환
-20109,안지승
-20110,오윤건
-20111,이우진
-20112,정희승
-20113,홍성훈
-20201,김민준
-20202,김언수
-20203,박성원
-20204,박재영
-20205,박지후
-20206,박형영
-20207,송지호
-20208,송찬우
-20209,원선우
-20210,윤지형
-20211,이도은
-20212,이민규
-20213,이승민
-20301,권용희
-20302,김근우
-20303,김민건
-20304,김윤우
-20305,김재훈
-20306,김주원
-20307,이선교
-20308,이준서
-20309,전태율
-20310,전하승
-20311,전현성
-20312,최찬영
-20313,한성훈
-20314,허주원
-20401,강예범
-20402,강지호
-20403,김강산
 20404,김민찬
 20405,김지원
 20406,박규민
@@ -382,364 +252,613 @@
 20607,심승연
 20608,이시후
 20609,이준범
-20610,이현승
-20611,이현준
-20612,임찬호
-20613,장정우
-20614,최석현
-20701,강기연
-20702,강민준
-20703,김미종
-20704,김지윤
-20705,류주원
-20706,류현우
-20707,박한진
-20708,양지우
-20709,이도경
-20710,이충희
-20711,정은우
-20712,주은빈
-20713,진현세
-30101,김재환
-30102,박예찬
-30103,박재원
-30104,손재민
-30105,이원준
-30106,이윤건
-30107,이정민
-30108,장윤성
-30109,정시환
-30110,조민오
-30111,최문경
-30112,최현
-30201,김민섭
-30202,김지훈
-30203,우형민
-30204,육현우
-30205,윤동완
-30206,이연우
-30207,이윤우
-30208,이의준
-30209,이재빈
-30210,조민수
-30211,최준호
-30212,김성훈
-30301,김규혁
-30302,김도완
-30303,김도훈
-30304,서민준
-30305,신민기
-30306,위정현
-30307,이승현
-30308,이윤호
-30309,이준서
-30310,정인하
-30311,정현오
-30312,주어진
-30401,고예성
-30402,김도균
-30403,김도현
-30404,김민성
-30405,김서준
-30406,김우민
-30407,문승현
-30408,이남권
-30409,정민규
-30410,정승재
-30411,차재윤
-30412,황정민
-30501,구민서
-30502,김도훈
-30503,김성현
-30504,김우연
-30505,김준후
-30506,박규동
-30507,박재민
-30508,성건오
-30509,안의진
-30510,윤승현
-30511,정윤교
-30512,차주영
-30513,곽민서
-30601,강재현
-30602,김신엽
-30603,김영효
-30604,박건우
-30605,박재현
-30606,서동현
-30607,서수민
-30608,윤시후
-30609,이수혁
-30610,장승모
-30611,장우석
-30612,정주원
-30701,강정헌
-30702,권민재
-30703,김민서
-30704,김윤건
-30705,박석현
-30706,박세환
-30707,박준서
-30708,옥태산
-30709,이재원
-30710,이태윤
-30711,임성빈
-30712,조남훈`;
+20610,이현승`;
 
-        // ============================================================================
+// ─── 앱 상태 ───────────────────────────────────────────────────────────────
+let db, auth, user, unsubAttendance;
 
-        async function init() {
-            const offset = new Date().getTimezoneOffset() * 60000;
-            todayRealStr = (new Date(Date.now() - offset)).toISOString().slice(0, 10);
-            allStudents = parseStudentCSV(defaultStudentText);
-            teachersData = parseTeacherCSV(defaultTeacherText);
-            setDateVariables(todayRealStr);
-            switchView('teacher');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+const state = {
+    currentView:    'teacher',
+    selectedGrade:  null,
+    selectedClass:  null,
+    currentDateStr: '',
+    currentMonthStr:'',
+    todayRealStr:   '',
+    attendanceData: {},      // { docId: { studentId: { p1, p2, p3, p4 } } }
+    studentsByClass:{},      // { '1_1': [...], '1_2': [...] }  ← 미리 그룹핑
+    teachersData:   {}
+};
 
-            try {
-                if (typeof __firebase_config !== 'undefined') {
-                    const cfg = JSON.parse(__firebase_config);
-                    const appObj = initializeApp(cfg);
-                    auth = getAuth(appObj);
-                    db = getFirestore(appObj);
+// ─── 유틸리티 ──────────────────────────────────────────────────────────────
 
-                    const initAuth = async () => {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    };
-                    await initAuth();
-                    onAuthStateChanged(auth, u => { user = u; if (user) subscribeToAttendance(); });
-                }
-            } catch (e) { console.warn("Offline Mode"); }
+/**
+ * [버그수정] 타임존 안전한 오늘 날짜 문자열 반환 (YYYY-MM-DD)
+ * new Date()는 UTC 기준이라 한국(UTC+9)에서 자정 이전 호출 시 날짜가 밀림.
+ * 로컬 시간 기준으로 직접 포맷한다.
+ */
+function getTodayLocalStr() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+}
+
+/**
+ * [버그수정] 날짜 문자열(YYYY-MM-DD) 덧셈 — 타임존 무관하게 동작
+ * new Date("2025-05-01")은 UTC 00:00 기준이라 로컬에서 getDay()가 달라질 수 있음.
+ * 'T12:00:00' 정오를 붙여 DST·타임존 경계 문제를 회피한다.
+ */
+function addDays(dateStr, delta) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    return d.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD → 'YYYY.MM.DD (요일)' */
+function formatDateDisplay(dateStr) {
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const d = new Date(dateStr + 'T12:00:00');
+    return `${dateStr.replace(/-/g, '.')} (${days[d.getDay()]})`;
+}
+
+/** 학년·반 → 학생 배열 (미리 그룹핑해둔 Map 사용) */
+function getStudents(grade, cls) {
+    return state.studentsByClass[`${grade}_${cls}`] || [];
+}
+
+/** 학생 데이터 파싱 및 학년·반 그룹핑 */
+function parseStudentCSV(text) {
+    const students = text.trim().split('\n').slice(1).map(line => {
+        const parts = line.split(',');
+        if (parts.length < 2) return null;
+        const hs = parts[0].trim();
+        if (hs.length !== 5) return null;
+        return {
+            id:    hs,
+            grade: parseInt(hs[0]),
+            class: parseInt(hs.substring(1, 3)),
+            no:    parseInt(hs.substring(3, 5)),
+            name:  parts[1].trim()
+        };
+    }).filter(Boolean);
+
+    // [성능개선] 학년·반 별로 미리 그룹핑
+    const grouped = {};
+    students.forEach(s => {
+        const key = `${s.grade}_${s.class}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s);
+    });
+    return grouped;
+}
+
+function parseTeacherCSV(text) {
+    const obj = {};
+    text.trim().split('\n').slice(1).forEach(line => {
+        const parts = line.split(',');
+        if (parts.length < 3) return;
+        const gMatch = parts[0].match(/\d+/);
+        const cMatch = parts[1].match(/\d+/);
+        if (gMatch && cMatch) obj[`${parseInt(gMatch[0])}_${parseInt(cMatch[0])}`] = parts[2].trim();
+    });
+    return obj;
+}
+
+/** 빈 출결 객체 생성 */
+function emptyAttendance() {
+    const o = {};
+    for (let p = 1; p <= MAX_PERIOD; p++) o[`p${p}`] = 0;
+    return o;
+}
+
+/** 출결 상태 0→1→2→0 순환 */
+function nextStatus(cur) { return (cur + 1) % 3; }
+
+// ─── 토스트 ────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.backgroundColor = type === 'success' ? '#1e293b' : '#991b1b';
+    el.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── 날짜 UI ───────────────────────────────────────────────────────────────
+function setDateVariables(dateStr) {
+    state.currentDateStr  = dateStr;
+    state.currentMonthStr = dateStr.substring(0, 7);
+
+    document.getElementById('current-date-display').textContent = formatDateDisplay(dateStr);
+    document.getElementById('date-selector').value = dateStr;
+
+    const isTodayOrFuture = dateStr >= state.todayRealStr;
+    const isToday         = dateStr === state.todayRealStr;
+
+    const btnPlus = document.getElementById('btn-day-plus');
+    btnPlus.disabled = isTodayOrFuture;
+    btnPlus.classList.toggle('opacity-30', isTodayOrFuture);
+
+    document.getElementById('btn-today').classList.toggle('hidden', isToday);
+    document.getElementById('date-warning').classList.toggle('hidden', isToday);
+}
+
+window.adjustDate = (delta) => {
+    const next = addDays(state.currentDateStr, delta);
+    if (next <= state.todayRealStr) changeDate(next);
+};
+
+window.changeDate = (newDate) => {
+    if (newDate > state.todayRealStr) return; // 미래 날짜 차단
+    const oldMonth = state.currentMonthStr;
+    setDateVariables(newDate);
+    // [버그수정] 월 변경 시 Firestore 구독 재설정, 같은 달이면 화면만 갱신
+    if (oldMonth !== state.currentMonthStr && user && db) {
+        subscribeToAttendance();
+    } else {
+        refreshCurrentView();
+    }
+};
+
+window.goToToday = () => changeDate(state.todayRealStr);
+
+// ─── 뷰 전환 ───────────────────────────────────────────────────────────────
+window.switchView = (view) => {
+    state.currentView = view;
+    document.getElementById('view-teacher').classList.toggle('hidden', view !== 'teacher');
+    document.getElementById('view-admin').classList.toggle('hidden', view !== 'admin');
+
+    const activeClass   = 'bg-white shadow-sm text-indigo-600';
+    const inactiveClass = 'text-slate-500 hover:bg-slate-200';
+    const base          = 'no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all';
+
+    document.getElementById('btn-teacher').className = `${base} ${view === 'teacher' ? activeClass : inactiveClass}`;
+    document.getElementById('btn-admin').className   = `${base} ${view === 'admin'   ? activeClass : inactiveClass}`;
+
+    refreshCurrentView();
+};
+
+function refreshCurrentView() {
+    if (state.currentView === 'teacher') renderStudents();
+    else updateAdminStats();
+}
+
+// ─── 반 선택 ───────────────────────────────────────────────────────────────
+window.setGrade = (g) => {
+    state.selectedGrade = g;
+    state.selectedClass = null;
+    renderClassButtons();
+    updateGradeUI();
+    resetStudentContainer();
+};
+
+window.setClass = (c) => {
+    state.selectedClass = c;
+    updateClassUI();
+    renderStudents();
+};
+
+function renderClassButtons() {
+    const container = document.getElementById('class-grid');
+    container.innerHTML = '';
+    const count = CLASS_CONFIG[state.selectedGrade] || 0;
+    for (let i = 1; i <= count; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'class-btn px-2 py-3 border rounded-xl font-bold md:text-lg transition-all hover:bg-slate-50';
+        btn.textContent = `${i}반`;
+        btn.dataset.class = i;
+        btn.addEventListener('click', () => setClass(i));
+        container.appendChild(btn);
+    }
+}
+
+function updateGradeUI() {
+    document.querySelectorAll('.grade-btn').forEach(b => {
+        const active = parseInt(b.dataset.grade) === state.selectedGrade;
+        b.classList.toggle('bg-indigo-600', active);
+        b.classList.toggle('text-white',    active);
+        b.classList.toggle('border-indigo-600', active);
+    });
+}
+
+function updateClassUI() {
+    document.querySelectorAll('.class-btn').forEach(b => {
+        const active = parseInt(b.dataset.class) === state.selectedClass;
+        b.classList.toggle('bg-indigo-600', active);
+        b.classList.toggle('text-white',    active);
+        b.classList.toggle('border-indigo-600', active);
+    });
+}
+
+function resetStudentContainer() {
+    const hasClass = !!state.selectedClass;
+    document.getElementById('no-class-selected').classList.toggle('hidden', hasClass);
+    document.getElementById('student-container').classList.toggle('hidden', !hasClass);
+    document.getElementById('class-info-card').classList.toggle('hidden', !hasClass);
+}
+
+// ─── 학생 카드 렌더링 ──────────────────────────────────────────────────────
+function renderStudents() {
+    if (!state.selectedGrade || !state.selectedClass) return;
+    resetStudentContainer();
+
+    const teacher = state.teachersData[`${state.selectedGrade}_${state.selectedClass}`] || '미배정';
+    const titleEl = document.getElementById('selected-class-title');
+    titleEl.textContent = '';
+    titleEl.appendChild(document.createTextNode(`${state.selectedGrade}학년 ${state.selectedClass}반 `));
+    const small = document.createElement('span');
+    small.className = 'text-xs font-normal opacity-60';
+    small.textContent = `(담임: ${teacher})`;
+    titleEl.appendChild(small);
+
+    document.getElementById('period-info-text').textContent = `전 학년 ${MAX_PERIOD}차시까지 운영됩니다.`;
+
+    const docId   = makeDocId();
+    const data    = state.attendanceData[docId] || {};
+    const students = getStudents(state.selectedGrade, state.selectedClass);
+    const grid    = document.getElementById('student-grid');
+    grid.innerHTML = '';
+
+    students.forEach(s => {
+        const sData = data[s.id] || emptyAttendance();
+        grid.appendChild(buildStudentCard(s, sData));
+    });
+    updateSummary(students, data);
+}
+
+/** [품질개선] innerHTML 대신 DOM API로 카드 생성 → XSS 위험 제거 */
+function buildStudentCard(student, sData) {
+    const card = document.createElement('div');
+    card.className = 'bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col items-center gap-4 hover:shadow-md transition-all';
+    card.dataset.studentId = student.id;
+
+    // 이름 영역
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'text-center';
+
+    const noBadge = document.createElement('span');
+    noBadge.className = 'text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border';
+    noBadge.textContent = `${student.no}번`;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'text-xl font-black mt-1 text-slate-800';
+    nameDiv.textContent = student.name;
+
+    nameWrap.appendChild(noBadge);
+    nameWrap.appendChild(nameDiv);
+
+    // 차시 버튼 영역
+    const btnRow = document.createElement('div');
+    btnRow.className = 'flex gap-2 w-full pt-3 border-t border-slate-50';
+
+    for (let p = 1; p <= MAX_PERIOD; p++) {
+        const col = document.createElement('div');
+        col.className = 'flex flex-col items-center flex-1';
+
+        const label = document.createElement('span');
+        label.className = 'text-[10px] font-bold text-slate-400 mb-1';
+        label.textContent = `${p}차`;
+
+        const btn = document.createElement('button');
+        btn.className = 'w-10 h-10 md:w-12 md:h-12 rounded-xl border-2 font-bold transition-all';
+        btn.dataset.period = p;
+        applyStatusClass(btn, sData[`p${p}`]);
+
+        btn.addEventListener('click', () => toggleStatus(student.id, p));
+
+        col.appendChild(label);
+        col.appendChild(btn);
+        btnRow.appendChild(col);
+    }
+
+    card.appendChild(nameWrap);
+    card.appendChild(btnRow);
+    return card;
+}
+
+function applyStatusClass(btn, status) {
+    btn.classList.remove('status-present', 'status-absent', 'status-none');
+    if (status === 1) {
+        btn.classList.add('status-present');
+        btn.textContent = '출';
+    } else if (status === 2) {
+        btn.classList.add('status-absent');
+        btn.textContent = '결';
+    } else {
+        btn.classList.add('status-none');
+        btn.textContent = '-';
+    }
+}
+
+// ─── 출결 토글 ─────────────────────────────────────────────────────────────
+/**
+ * [성능개선] 전체 카드를 재렌더링하지 않고 해당 버튼만 DOM에서 직접 업데이트.
+ * [버그수정] showToast()를 Firestore 저장 성공/실패 시 실제로 호출.
+ */
+window.toggleStatus = async (studentId, period) => {
+    const docId  = makeDocId();
+    const curData = state.attendanceData[docId] || {};
+    const sData  = Object.assign(emptyAttendance(), curData[studentId] || {});
+
+    const next = nextStatus(sData[`p${period}`]);
+    sData[`p${period}`] = next;
+
+    // 결석(2) 또는 미입력(0)으로 변경 시, 이후 차시도 같은 상태로 연동
+    if (next === 2 || next === 0) {
+        for (let i = period + 1; i <= MAX_PERIOD; i++) sData[`p${i}`] = next;
+    }
+
+    curData[studentId] = sData;
+    state.attendanceData[docId] = curData;
+
+    // DOM 직접 업데이트 (카드 전체 재렌더링 없음)
+    const card = document.querySelector(`[data-student-id="${studentId}"]`);
+    if (card) {
+        const btns = card.querySelectorAll('button[data-period]');
+        btns.forEach(btn => {
+            const p = parseInt(btn.dataset.period);
+            applyStatusClass(btn, sData[`p${p}`]);
+        });
+    }
+
+    // 사이드 요약 갱신
+    const students = getStudents(state.selectedGrade, state.selectedClass);
+    updateSummary(students, curData);
+
+    // Firestore 저장
+    if (db && user) {
+        try {
+            const colPath = `attendance_${state.currentMonthStr}`;
+            await setDoc(
+                doc(db, 'artifacts', APP_ID, 'public', 'data', colPath, docId),
+                { data: curData },
+                { merge: true }
+            );
+        } catch (e) {
+            console.error('저장 오류:', e);
+            showToast('저장 실패. 네트워크를 확인해주세요.', 'error');
         }
+    }
+};
 
-        window.switchView = (view) => {
-            currentView = view;
-            document.getElementById('view-teacher').classList.toggle('hidden', view !== 'teacher');
-            document.getElementById('view-admin').classList.toggle('hidden', view !== 'admin');
-            const bt = document.getElementById('btn-teacher');
-            const ba = document.getElementById('btn-admin');
-            bt.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='teacher'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
-            ba.className = `no-scale flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm md:text-base font-semibold transition-all ${view==='admin'?'bg-white shadow-sm text-indigo-600':'text-slate-500 hover:bg-slate-200'}`;
-            if (view === 'admin') updateAdminStats(); else renderStudents();
-        };
+window.clearAllAttendance = async () => {
+    if (!confirm('해당 학급의 기록을 모두 지우시겠습니까?')) return;
+    const docId  = makeDocId();
+    const empty  = {};
+    getStudents(state.selectedGrade, state.selectedClass)
+        .forEach(s => { empty[s.id] = emptyAttendance(); });
 
-        window.setGrade = (g) => { 
-            selectedGrade = g; selectedClass = null; 
-            renderClassButtons(); updateSelectionUI(); resetStudentContainer(); 
-        };
-        window.setClass = (c) => { 
-            selectedClass = c; updateSelectionUI(); renderStudents(); 
-        };
+    state.attendanceData[docId] = empty;
+    renderStudents();
 
-        function renderClassButtons() {
-            const container = document.getElementById('class-grid'); container.innerHTML = '';
-            for (let i = 1; i <= classConfig[selectedGrade]; i++) {
-                const btn = document.createElement('button');
-                btn.className = 'class-btn px-2 py-3 border rounded-xl font-bold md:text-lg transition-all hover:bg-slate-50';
-                btn.textContent = `${i}반`; btn.onclick = () => setClass(i);
-                container.appendChild(btn);
-            }
+    if (db && user) {
+        try {
+            const colPath = `attendance_${state.currentMonthStr}`;
+            await setDoc(
+                doc(db, 'artifacts', APP_ID, 'public', 'data', colPath, docId),
+                { data: empty },
+                { merge: true }
+            );
+            showToast('초기화 완료');
+        } catch (e) {
+            console.error('초기화 오류:', e);
+            showToast('초기화 실패. 네트워크를 확인해주세요.', 'error');
         }
+    }
+};
 
-        function updateSelectionUI() {
-            document.querySelectorAll('.grade-btn').forEach(b => {
-                const g = parseInt(b.dataset.grade);
-                b.classList.toggle('bg-indigo-600', g === selectedGrade);
-                b.classList.toggle('text-white', g === selectedGrade);
+function updateSummary(students, data) {
+    const container = document.getElementById('class-stats-container');
+    container.innerHTML = '';
+    for (let p = 1; p <= MAX_PERIOD; p++) {
+        const count = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
+        const row = document.createElement('div');
+        row.className = 'text-xs md:text-sm text-indigo-800 flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg border border-indigo-100 shadow-sm';
+        const lbl = document.createElement('span');
+        lbl.className = 'font-bold';
+        lbl.textContent = `${p}차시`;
+        const val = document.createElement('span');
+        val.className = 'font-extrabold';
+        val.textContent = `${count}명 출석`;
+        row.appendChild(lbl);
+        row.appendChild(val);
+        container.appendChild(row);
+    }
+}
+
+// ─── 관리자 통계 ───────────────────────────────────────────────────────────
+/**
+ * [버그수정] 관리자 뷰 행 클릭 → 교사 뷰 이동 시 setGrade 후 selectedClass null 리셋 문제.
+ * setGrade와 setClass를 직접 내부 호출하지 않고 상태를 먼저 세팅한 뒤 UI를 한번에 갱신.
+ */
+function gotoTeacherView(grade, cls) {
+    state.selectedGrade = grade;
+    state.selectedClass = cls;
+    switchView('teacher');
+    renderClassButtons();
+    updateGradeUI();
+    updateClassUI();
+    renderStudents();
+}
+
+function updateAdminStats() {
+    const body = document.getElementById('admin-table-body');
+    body.innerHTML = '';
+    let totalPresent = 0, totalSlots = 0;
+
+    for (let g = 1; g <= MAX_GRADE; g++) {
+        for (let c = 1; c <= CLASS_CONFIG[g]; c++) {
+            const students = getStudents(g, c);
+            const docId    = `${state.currentDateStr}_${g}_${c}`;
+            const data     = state.attendanceData[docId] || {};
+
+            const pCounts = Array.from({ length: MAX_PERIOD }, (_, i) =>
+                students.filter(s => data[s.id]?.[`p${i + 1}`] === 1).length
+            );
+            const pSum = pCounts.reduce((a, b) => a + b, 0);
+            const per  = students.length > 0
+                ? (pSum / (students.length * MAX_PERIOD) * 100).toFixed(1)
+                : '0.0';
+
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-slate-50 cursor-pointer';
+            row.addEventListener('click', () => gotoTeacherView(g, c));
+
+            const cells = [
+                { text: `${g}-${c}`, cls: 'font-bold' },
+                { text: state.teachersData[`${g}_${c}`] || '-' },
+                { text: students.length },
+                ...pCounts.map(n => ({ text: n, center: true, bold: true })),
+                { text: `${per}%`, right: true, bold: true, indigo: true }
+            ];
+
+            cells.forEach(({ text, cls: extraCls = '', center, right, bold, indigo }) => {
+                const td = document.createElement('td');
+                td.className = `px-5 py-4${center ? ' text-center' : ''}${right ? ' text-right' : ''}${bold ? ' font-bold' : ''}${indigo ? ' text-indigo-600' : ''} ${extraCls}`.trim();
+                td.textContent = text;
+                row.appendChild(td);
             });
-            document.querySelectorAll('.class-btn').forEach((b, idx) => {
-                b.classList.toggle('bg-indigo-600', (idx+1) === selectedClass);
-                b.classList.toggle('text-white', (idx+1) === selectedClass);
+
+            body.appendChild(row);
+            totalPresent += pSum;
+            totalSlots   += students.length * MAX_PERIOD;
+        }
+    }
+
+    document.getElementById('admin-total-percent').textContent =
+        totalSlots > 0 ? (totalPresent / totalSlots * 100).toFixed(1) + '%' : '0.0%';
+}
+
+// ─── 엑셀 출력 ─────────────────────────────────────────────────────────────
+/**
+ * [버그수정] colspan을 하드코딩 19 → 실제 열 수로 계산.
+ * 열 구조: 빈칸(1) + 학년별 [반,재적,1차~4차](6열) × 3학년 = 1 + 18 = 19
+ * 각 학년의 최대 반 수가 다르므로 실제 행별로 colspan 계산.
+ */
+window.exportToExcel = () => {
+    const formattedDate = state.currentDateStr.replace(/-/g, '.');
+    const maxClass = Math.max(...Object.values(CLASS_CONFIG));
+    // 헤더: 학년별 6열 (반, 재적, 1차~4차) × 3학년 + 앞 빈칸 1
+    const totalCols = 1 + MAX_GRADE * (1 + 1 + MAX_PERIOD);
+
+    // 헤더 행
+    let headerGrade = '<tr><td></td>';
+    for (let g = 1; g <= MAX_GRADE; g++) {
+        headerGrade += `<td colspan="${1 + 1 + MAX_PERIOD}" style="border:0.5pt solid black;text-align:center;font-weight:bold;">${g}학년</td>`;
+    }
+    headerGrade += '</tr>';
+
+    let headerLabel = '<tr><td style="border:0.5pt solid black;text-align:center;">반</td>';
+    for (let g = 1; g <= MAX_GRADE; g++) {
+        headerLabel += '<td style="border:0.5pt solid black;text-align:center;">반</td>';
+        headerLabel += '<td style="border:0.5pt solid black;text-align:center;">재적</td>';
+        for (let p = 1; p <= MAX_PERIOD; p++) {
+            headerLabel += `<td style="border:0.5pt solid black;text-align:center;">${p}차</td>`;
+        }
+    }
+    headerLabel += '</tr>';
+
+    let rowsHtml = '';
+    for (let c = 1; c <= maxClass; c++) {
+        rowsHtml += `<tr><td style="border:0.5pt solid black;text-align:center;">${c}반</td>`;
+        for (let g = 1; g <= MAX_GRADE; g++) {
+            if (c <= CLASS_CONFIG[g]) {
+                const students = getStudents(g, c);
+                const data     = state.attendanceData[`${state.currentDateStr}_${g}_${c}`] || {};
+                const pCounts  = Array.from({ length: MAX_PERIOD }, (_, i) =>
+                    students.filter(s => data[s.id]?.[`p${i + 1}`] === 1).length
+                );
+                rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${c}</td>`;
+                rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${students.length}</td>`;
+                pCounts.forEach(n => {
+                    rowsHtml += `<td style="border:0.5pt solid black;text-align:center;">${n}</td>`;
+                });
+            } else {
+                rowsHtml += `<td colspan="${1 + 1 + MAX_PERIOD}" style="border:0.5pt solid black;"></td>`;
+            }
+        }
+        rowsHtml += '</tr>';
+    }
+
+    const html = `<html><head><meta charset='utf-8'><style>td{vertical-align:middle;}</style></head><body>
+<table>
+<tr><td colspan="${totalCols}" style="text-align:center;font-size:16pt;font-weight:bold;">자율학습 참여현황 (${formattedDate})</td></tr>
+${headerGrade}${headerLabel}${rowsHtml}
+</table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `참여현황_${state.currentDateStr}.xls`;
+    a.click();
+    URL.revokeObjectURL(a.href); // 메모리 해제
+};
+
+// ─── Firestore 연동 ────────────────────────────────────────────────────────
+function subscribeToAttendance() {
+    if (!db || !user) return;
+    if (unsubAttendance) unsubAttendance();
+
+    const colPath = `attendance_${state.currentMonthStr}`;
+    const colRef  = collection(db, 'artifacts', APP_ID, 'public', 'data', colPath);
+
+    unsubAttendance = onSnapshot(colRef, snapshot => {
+        state.attendanceData = {};
+        snapshot.forEach(d => { state.attendanceData[d.id] = d.data().data || {}; });
+        refreshCurrentView();
+    }, err => {
+        if (err.code === 'permission-denied') {
+            console.error('Firestore 권한 없음:', colPath);
+        } else {
+            console.error('Firestore 오류:', err);
+            showToast('데이터 연결 오류', 'error');
+        }
+    });
+}
+
+/** docId 헬퍼 */
+function makeDocId() {
+    return `${state.currentDateStr}_${state.selectedGrade}_${state.selectedClass}`;
+}
+
+// ─── 초기화 ────────────────────────────────────────────────────────────────
+async function init() {
+    state.todayRealStr   = getTodayLocalStr(); // [버그수정] 타임존 안전 함수 사용
+    state.studentsByClass = parseStudentCSV(defaultStudentText);
+    state.teachersData    = parseTeacherCSV(defaultTeacherText);
+
+    setDateVariables(state.todayRealStr);
+    switchView('teacher');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    try {
+        if (typeof __firebase_config !== 'undefined') {
+            const cfg    = JSON.parse(__firebase_config);
+            const appObj = initializeApp(cfg);
+            auth = getAuth(appObj);
+            db   = getFirestore(appObj);
+
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, u => {
+                user = u;
+                if (user) subscribeToAttendance();
             });
         }
+    } catch (e) {
+        console.error('Firebase 연결 오류:', e);
+        showToast('Firebase 연결 실패', 'error');
+    }
+}
 
-        function resetStudentContainer() {
-            document.getElementById('no-class-selected').classList.toggle('hidden', !!selectedClass);
-            document.getElementById('student-container').classList.toggle('hidden', !selectedClass);
-            document.getElementById('class-info-card').classList.toggle('hidden', !selectedClass);
-        }
-
-        function setDateVariables(dateString) {
-            currentDateStr = dateString; currentMonthStr = dateString.substring(0, 7);
-            const dateObj = new Date(dateString);
-            const days = ['일', '월', '화', '수', '목', '금', '토'];
-            document.getElementById('current-date-display').textContent = `${dateString.replace(/-/g, '.')} (${days[dateObj.getDay()]})`;
-            document.getElementById('date-selector').value = dateString;
-            document.getElementById('btn-day-plus').disabled = dateString >= todayRealStr;
-            document.getElementById('btn-day-plus').classList.toggle('opacity-30', dateString >= todayRealStr);
-            document.getElementById('date-warning').classList.toggle('hidden', dateString === todayRealStr);
-            document.getElementById('btn-today').classList.toggle('hidden', dateString === todayRealStr);
-        }
-
-        window.adjustDate = (unit, delta) => {
-            const d = new Date(currentDateStr); d.setDate(d.getDate() + delta);
-            const next = d.toISOString().slice(0, 10);
-            if (next <= todayRealStr) changeDate(next);
-        };
-
-        window.changeDate = (newDate) => {
-            const oldM = currentMonthStr; setDateVariables(newDate);
-            if (oldM !== currentMonthStr && user && db) subscribeToAttendance(); else renderStudents();
-        };
-
-        window.goToToday = () => changeDate(todayRealStr);
-
-        function renderStudents() {
-            if (!selectedGrade || !selectedClass) return;
-            resetStudentContainer();
-            const teacher = teachersData[`${selectedGrade}_${selectedClass}`] || '미배정';
-            document.getElementById('selected-class-title').innerHTML = `${selectedGrade}학년 ${selectedClass}반 <span class="text-xs font-normal text-slate-500 ml-1">(담임: ${teacher})</span>`;
-            
-            // 모든 학년 4차시 고정
-            const maxP = 4;
-            document.getElementById('period-info-text').textContent = `전 학년 4차시까지 운영됩니다.`;
-            
-            const grid = document.getElementById('student-grid'); grid.innerHTML = '';
-            const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
-            const data = attendanceData[`${currentDateStr}_${selectedGrade}_${selectedClass}`] || {};
-
-            students.forEach(s => {
-                const sData = data[s.id] || { p1: 0, p2: 0, p3: 0, p4: 0 };
-                const card = document.createElement('div');
-                card.className = 'bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col items-center gap-4 hover:shadow-md transition-all';
-                
-                let btns = '';
-                for (let p = 1; p <= maxP; p++) {
-                    const st = sData[`p${p}`];
-                    const cls = st === 1 ? 'status-present' : (st === 2 ? 'status-absent' : 'status-none');
-                    const txt = st === 1 ? '출' : (st === 2 ? '결' : '-');
-                    btns += `<div class="flex flex-col items-center flex-1">
-                        <span class="text-[10px] font-bold text-slate-400 mb-1">${p}차</span>
-                        <button onclick="toggleStatus('${s.id}', ${p})" class="w-10 h-10 md:w-12 md:h-12 rounded-xl border-2 font-bold text-base flex items-center justify-center transition-all ${cls}">${txt}</button>
-                    </div>`;
-                }
-                
-                card.innerHTML = `
-                    <div class="text-center">
-                        <span class="text-[11px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">${s.no}번</span>
-                        <div class="text-xl font-black text-slate-800 mt-1">${s.name}</div>
-                    </div>
-                    <div class="flex gap-2 w-full justify-center border-t border-slate-50 pt-3">${btns}</div>
-                `;
-                grid.appendChild(card);
-            });
-            updateSummary(students, data, maxP);
-        }
-
-        window.toggleStatus = async (id, p) => {
-            const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-            const curData = attendanceData[docId] || {};
-            const sData = curData[id] || { p1:0, p2:0, p3:0, p4:0 };
-            const next = (sData[`p${p}`] + 1) % 3;
-            sData[`p${p}`] = next;
-            const maxP = 4;
-            
-            if (next === 2 || next === 0) { 
-                for (let i = p + 1; i <= maxP; i++) sData[`p${i}`] = next; 
-            }
-            
-            curData[id] = sData; 
-            attendanceData[docId] = curData; 
-            renderStudents();
-            
-            if (db && user) {
-                const docPath = `attendance_${currentMonthStr}`;
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', docPath, docId), { data: curData }, { merge: true });
-            }
-        };
-
-        window.clearAllAttendance = async () => {
-            if (!confirm("해당 학급의 기록을 모두 지우시겠습니까?")) return;
-            const docId = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-            const empty = {};
-            allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass).forEach(s => { empty[s.id] = { p1:0, p2:0, p3:0, p4:0 }; });
-            attendanceData[docId] = empty; 
-            renderStudents();
-            
-            if (db && user) {
-                const docPath = `attendance_${currentMonthStr}`;
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', docPath, docId), { data: empty }, { merge: true });
-            }
-        };
-
-        function updateSummary(students, data, maxP) {
-            const container = document.getElementById('class-stats-container'); container.innerHTML = '';
-            for (let p = 1; p <= maxP; p++) {
-                const count = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
-                const per = students.length > 0 ? Math.round((count / students.length) * 100) : 0;
-                const row = document.createElement('div');
-                row.className = 'text-xs md:text-sm text-indigo-800 flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg border border-indigo-100 shadow-sm';
-                row.innerHTML = `<span class="font-bold">${p}차시</span><span class="font-extrabold">${count} / ${students.length}명 (${per}%)</span>`;
-                container.appendChild(row);
-            }
-        }
-
-        // --- Admin Statistics ---
-        function updateAdminStats() {
-            const body = document.getElementById('admin-table-body'); body.innerHTML = '';
-            let totalP = 0, totalT = 0;
-            for (let g = 1; g <= 3; g++) {
-                for (let c = 1; c <= classConfig[g]; c++) {
-                    const students = allStudents.filter(s => s.grade === g && s.class === c);
-                    const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
-                    let pCounts = [0,0,0,0];
-                    students.forEach(s => { for (let i=0; i<4; i++) if (data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; });
-                    const pSum = pCounts.reduce((a,b)=>a+b, 0);
-                    // 모든 학년 4차시로 나눔
-                    const per = students.length > 0 ? (pSum / (students.length * 4) * 100).toFixed(1) : "0.0";
-                    const row = document.createElement('tr'); row.className = 'hover:bg-slate-50 cursor-pointer';
-                    row.onclick = () => { switchView('teacher'); setGrade(g); setClass(c); };
-                    row.innerHTML = `<td class="px-5 py-4 font-bold">${g}-${c}</td><td class="px-5 py-4">${teachersData[`${g}_${c}`] || '-'}</td><td class="px-5 py-4">${students.length}</td><td class="px-5 py-4 text-center font-bold">${pCounts[0]}</td><td class="px-5 py-4 text-center font-bold">${pCounts[1]}</td><td class="px-5 py-4 text-center font-bold">${pCounts[2]}</td><td class="px-5 py-4 text-center font-bold">${pCounts[3]}</td><td class="px-5 py-4 text-right font-bold text-indigo-600">${per}%</td>`;
-                    body.appendChild(row);
-                    totalP += pSum; totalT += students.length * 4;
-                }
-            }
-            document.getElementById('admin-total-percent').textContent = totalT > 0 ? (totalP / totalT * 100).toFixed(1) + '%' : '0.0%';
-        }
-
-        // --- Data Parsing ---
-        function parseStudentCSV(t) { return t.trim().split('\n').slice(1).map(l => { const parts = l.split(','); if (parts.length >= 2) { const hs = parts[0].trim(); if (hs.length === 5) return { id: hs, grade: parseInt(hs[0]), class: parseInt(hs.substring(1, 3)), no: parseInt(hs.substring(3, 5)), name: parts[1].trim() }; } }).filter(Boolean); }
-        function parseTeacherCSV(t) { const obj = {}; t.trim().split('\n').slice(1).forEach(l => { const p = l.split(','); if (p.length >= 3) { const g = parseInt(p[0].match(/\d+/)[0]); const c = parseInt(p[1].match(/\d+/)[0]); obj[`${g}_${c}`] = p[2].trim(); } }); return obj; }
-        
-        function subscribeToAttendance() {
-            if (!db || !user) return;
-            const collectionPath = `attendance_${currentMonthStr}`;
-            if (unsubAttendance) unsubAttendance();
-            unsubAttendance = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', collectionPath), s => {
-                attendanceData = {}; s.forEach(d => attendanceData[d.id] = d.data().data || {});
-                if (currentView === 'teacher') renderStudents(); else updateAdminStats();
-            });
-        }
-
-        window.exportToExcel = () => {
-            const formattedDate = currentDateStr.replace(/-/g, '.');
-            let rowsHtml = '';
-            for (let c = 1; c <= 7; c++) {
-                rowsHtml += '<tr><td></td>';
-                for (let g = 1; g <= 3; g++) {
-                    if (c <= classConfig[g]) {
-                        const students = allStudents.filter(s => s.grade === g && s.class === c);
-                        const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
-                        let p = [0,0,0,0]; students.forEach(s => { for(let i=0; i<4; i++) if (data[s.id]?.[`p${i+1}`] === 1) p[i]++; });
-                        // 1, 2, 3학년 모두 4차시 출력
-                        rowsHtml += `<td style="border:0.5pt solid black;">${c}</td><td style="border:0.5pt solid black;">${students.length}</td><td style="border:0.5pt solid black;">${p[0]}</td><td style="border:0.5pt solid black;">${p[1]}</td><td style="border:0.5pt solid black;">${p[2]}</td><td style="border:0.5pt solid black;">${p[3]}</td>`;
-                    } else rowsHtml += '<td colspan="6" style="border:0.5pt solid black;"></td>';
-                }
-                rowsHtml += '</tr>';
-            }
-            const html = `<html><head><meta charset="utf-8"><style>table{border-collapse:collapse;text-align:center;font-family:'Malgun Gothic';}</style></head><body><table><tr><td colspan="19" style="text-align:center; font-size:16pt; font-weight:bold;">자율학습 참여현황 (${formattedDate})</td></tr>${rowsHtml}</table></body></html>`;
-            const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-            const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `참여현황_${currentDateStr}.xls`; a.click();
-        };
-
-        function showToast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('translate-y-20'); setTimeout(() => t.classList.add('translate-y-20'), 2000); }
-
-        init();
-    </script>
+init();
+</script>
 </body>
 </html>
