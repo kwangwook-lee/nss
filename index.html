@@ -1010,10 +1010,8 @@ function showToast(m) {
     setTimeout(function() { t.classList.add('translate-y-32'); }, 2500);
 }
 
-// 스크립트가 완전히 로드된 후 초기화
-window.onload = function() {
-    init();
-};
+// 요소들이 완전히 파싱된 상태이므로 즉시 초기화 실행
+init();
 </script>
 </body>
 </html>
