@@ -201,7 +201,6 @@ const teachersRaw = `학년,반,담임
 3학년,7반,이명진`;
 
 const studentsRaw = `학번,이름
-학번,이름
 10101,권기백
 10102,김이현
 10103,박어진
@@ -743,7 +742,7 @@ const exportDaily = () => {
         }
         html += `</tr>`;
     }
-    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table>${html}</table></body></html>`, `야자_일별_${currentDateStr}.xls`);
+    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table border="1" style="border-collapse:collapse;">${html}</table></body></html>`, `야자_일별_${currentDateStr}.xls`);
 };
 
 const exportMonthly = () => {
@@ -752,21 +751,41 @@ const exportMonthly = () => {
     const classList = [];
     for (let g = 1; g <= 3; g++) for (let c = 1; c <= CONFIG.classes[g]; c++) classList.push({ g, c });
     const totalCols = 1 + classList.length + 1;
-    let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;">월별 참여현황 (${currentMonthStr})</td></tr>`;
-    html += `<tr><td>날짜</td>` + classList.map(item => `<td style="mso-number-format:'\\@';">${item.g}-${item.c}반</td>`).join('') + `<td>평균</td></tr>`;
+    let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">월별 참여현황 (${currentMonthStr})</td></tr>`;
+    html += `<tr style="background:#f1f5f9;font-weight:bold;text-align:center;"><td>날짜</td>` + classList.map(item => `<td style="mso-number-format:'\\@';">${item.g}-${item.c}반</td>`).join('') + `<td>일별 평균</td></tr>`;
+    
+    const classTotals = classList.map(() => ({ p: 0, s: 0 }));
+    let grandP = 0, grandS = 0;
+
     dates.forEach(d => {
-        html += `<tr><td>${d.split('-')[2]}일</td>`;
+        const dayStr = d.split('-').length > 2 ? d.split('-')[2] + '일' : d;
+        html += `<tr><td style="text-align:center;font-weight:bold;">${dayStr}</td>`;
         let dSum = 0, dSlots = 0;
-        classList.forEach(({g,c}) => {
+        classList.forEach(({g,c}, index) => {
             const students = allStudents.filter(s => s.grade === g && s.class === c);
             const data = attendanceData[`${d}_${g}_${c}`] || {};
             let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
             const s = students.length*4;
-            html += `<td>${p}/${s}</td>`; dSum += p; dSlots += s;
+            html += `<td style="text-align:center;">${p}/${s}</td>`; 
+            dSum += p; 
+            dSlots += s;
+            classTotals[index].p += p;
+            classTotals[index].s += s;
         });
-        html += `<td style="font-weight:bold;">${dSlots>0?(dSum/dSlots*100).toFixed(1)+'%':'-'}</td></tr>`;
+        html += `<td style="text-align:center;font-weight:bold;color:#4f46e5;background:#fef9c3;">${dSlots>0?(dSum/dSlots*100).toFixed(1)+'%':'-'}</td></tr>`;
+        grandP += dSum;
+        grandS += dSlots;
     });
-    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table>${html}</table></body></html>`, `야자_월별_${currentMonthStr}.xls`);
+
+    html += `<tr style="background:#e0e7ff;font-weight:bold;text-align:center;"><td>월평균</td>`;
+    classTotals.forEach(total => {
+        const avg = total.s > 0 ? (total.p / total.s * 100).toFixed(1) + '%' : '-';
+        html += `<td style="color:#4f46e5;">${avg}</td>`;
+    });
+    const grandAvg = grandS > 0 ? (grandP / grandS * 100).toFixed(1) + '%' : '-';
+    html += `<td style="color:#4f46e5;background:#fef9c3;">${grandAvg}</td></tr>`;
+
+    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table border="1" style="border-collapse:collapse;">${html}</table></body></html>`, `야자_월별_${currentMonthStr}.xls`);
 };
 
 // --- DB ---
