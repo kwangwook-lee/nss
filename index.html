@@ -117,19 +117,27 @@
 
     <!-- VIEW: ADMIN -->
     <main id="view-admin" class="hidden">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-6">
-            <p class="text-gray-500 font-bold mb-1">전체 참여율</p>
-            <h2 class="text-5xl font-black text-gray-900" id="admin-total-percent">0.0%</h2>
-            <div class="flex gap-2 mt-4">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex gap-8">
+                <div>
+                    <p class="text-gray-500 font-bold mb-1">일간 참여율</p>
+                    <h2 class="text-4xl md:text-5xl font-black text-gray-900" id="admin-total-percent">0.0%</h2>
+                </div>
+                <div>
+                    <p class="text-indigo-500 font-bold mb-1">월간 평균</p>
+                    <h2 class="text-4xl md:text-5xl font-black text-indigo-600" id="admin-monthly-percent">0.0%</h2>
+                </div>
+            </div>
+            <div class="flex gap-2">
                 <button data-action="export-excel-daily" class="px-4 py-2 bg-green-600 text-white rounded-lg font-bold whitespace-nowrap">일별 통계</button>
                 <button data-action="export-excel-monthly" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold whitespace-nowrap">월별 통계</button>
             </div>
         </div>
-        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-            <table class="w-full text-sm text-left">
+        <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
+            <table class="w-full text-sm text-left whitespace-nowrap">
                 <thead class="bg-gray-50 border-b">
                     <tr>
-                        <th class="p-4">반</th><th class="p-4">담임</th><th class="p-4">재적</th><th class="p-4">1차</th><th class="p-4">2차</th><th class="p-4">3차</th><th class="p-4">4차</th><th class="p-4 text-right">참여율</th>
+                        <th class="p-4">반</th><th class="p-4">담임</th><th class="p-4 text-center">재적</th><th class="p-4 text-center">1차</th><th class="p-4 text-center">2차</th><th class="p-4 text-center">3차</th><th class="p-4 text-center">4차</th><th class="p-4 text-right">일간 참여율</th><th class="p-4 text-right text-indigo-600">월간 평균</th>
                     </tr>
                 </thead>
                 <tbody id="admin-table-body" class="divide-y"></tbody>
@@ -638,9 +646,13 @@ const toggleStatus = async (id, p) => {
         for (let i = p + 1; i <= 4; i++) cur[id][`p${i}`] = 2; 
     }
     
-    // 출석(1) 처리 시, 4차시를 제외한 이전 차시는 자동 출석 처리
+    // 출석(1) 처리 시, 4차시를 제외한(p<=3) 이전 차시는 '누르지 않은 상태(0)'일 때만 자동 출석 처리
     if (next === 1 && p <= 3) {
-        for (let i = 1; i < p; i++) cur[id][`p${i}`] = 1;
+        for (let i = 1; i < p; i++) {
+            if (cur[id][`p${i}`] === 0) {
+                cur[id][`p${i}`] = 1;
+            }
+        }
     }
     
     render(); 
@@ -665,9 +677,13 @@ const markAll = async (status) => {
             for (let i = p + 1; i <= 4; i++) cur[s.id][`p${i}`] = 2; 
         }
         
-        // 출석(1) 처리 시, 4차시를 제외한 이전 차시는 자동 출석 처리
+        // 출석(1) 처리 시, 4차시를 제외한(p<=3) 이전 차시는 '누르지 않은 상태(0)'일 때만 자동 출석 처리
         if (status === 1 && p <= 3) { 
-            for (let i = 1; i < p; i++) cur[s.id][`p${i}`] = 1; 
+            for (let i = 1; i < p; i++) {
+                if (cur[s.id][`p${i}`] === 0) {
+                    cur[s.id][`p${i}`] = 1;
+                }
+            }
         }
     });
     
@@ -697,21 +713,52 @@ const updateAdmin = () => {
     if (!body) return;
     body.innerHTML = '';
     let tP = 0, tT = 0;
+    let mP = 0, mT = 0;
+    
+    const monthlyStats = {};
+    for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            monthlyStats[`${g}_${c}`] = { p: 0, s: 0 };
+        }
+    }
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr));
+    dates.forEach(d => {
+        for (let g = 1; g <= 3; g++) {
+            for (let c = 1; c <= CONFIG.classes[g]; c++) {
+                const students = allStudents.filter(s => s.grade === g && s.class === c);
+                const data = attendanceData[`${d}_${g}_${c}`] || {};
+                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                monthlyStats[`${g}_${c}`].p += p;
+                monthlyStats[`${g}_${c}`].s += students.length * 4;
+                mP += p;
+                mT += students.length * 4;
+            }
+        }
+    });
+
     for (let g = 1; g <= 3; g++) {
         for (let c = 1; c <= CONFIG.classes[g]; c++) {
             const students = allStudents.filter(s => s.grade === g && s.class === c);
             if (!students.length) continue;
+            
             const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
             const pCounts = [0,0,0,0];
             students.forEach(s => { for (let i=0; i<4; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; });
             const pSum = pCounts.reduce((a,b)=>a+b, 0); const slots = students.length * 4;
             const per = slots > 0 ? (pSum/slots*100).toFixed(1) : '0.0';
-            body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${pCounts[3]}</td><td class="p-4 text-right font-black text-blue-600">${per}%</td></tr>`;
+            
+            const mStats = monthlyStats[`${g}_${c}`];
+            const mPer = mStats.s > 0 ? (mStats.p/mStats.s*100).toFixed(1) : '0.0';
+
+            body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4 text-center">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${pCounts[3]}</td><td class="p-4 text-right font-black text-gray-800">${per}%</td><td class="p-4 text-right font-black text-indigo-600">${mPer}%</td></tr>`;
             tP += pSum; tT += slots;
         }
     }
     const totalEl = document.getElementById('admin-total-percent');
     if (totalEl) totalEl.textContent = tT > 0 ? (tP/tT*100).toFixed(1) + '%' : '0.0%';
+    
+    const monthEl = document.getElementById('admin-monthly-percent');
+    if (monthEl) monthEl.textContent = mT > 0 ? (mP/mT*100).toFixed(1) + '%' : '0.0%';
 };
 
 // --- 엑셀 출력 ---
@@ -722,23 +769,50 @@ function countPresent(data, students, period) {
 const exportDaily = () => {
     const fd = currentDateStr.replace(/-/g, '.');
     const maxClass = Math.max(...Object.values(CONFIG.classes));
-    const totalCols = 1 + CONFIG.maxGrade * 6;
+    const colsPerGrade = 7; // 재적, 1, 2, 3, 4, 참여율, 월평균
+    const totalCols = 1 + CONFIG.maxGrade * colsPerGrade;
+    
+    // 월간 평균 미리 계산
+    const monthlyStats = {};
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr));
+    for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            monthlyStats[`${g}_${c}`] = { p: 0, s: 0 };
+        }
+    }
+    dates.forEach(d => {
+        for (let g = 1; g <= 3; g++) {
+            for (let c = 1; c <= CONFIG.classes[g]; c++) {
+                const students = allStudents.filter(s => s.grade === g && s.class === c);
+                const data = attendanceData[`${d}_${g}_${c}`] || {};
+                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                monthlyStats[`${g}_${c}`].p += p;
+                monthlyStats[`${g}_${c}`].s += students.length * 4;
+            }
+        }
+    });
+
     let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">야간 자율학습 일별 참여현황 (${fd})</td></tr>`;
     html += `<tr><td style="background:#f1f5f9;">반</td>`;
-    for (let g = 1; g <= 3; g++) html += `<td colspan="6" style="background:#e0e7ff;text-align:center;font-weight:bold;">${g}학년</td>`;
-    html += `</tr><tr><td></td>`;
-    for (let g = 1; g <= 3; g++) html += `<td>재적</td><td>1차</td><td>2차</td><td>3차</td><td>4차</td><td>참여율</td>`;
+    for (let g = 1; g <= 3; g++) html += `<td colspan="${colsPerGrade}" style="background:#e0e7ff;text-align:center;font-weight:bold;">${g}학년</td>`;
+    html += `</tr><tr style="text-align:center;font-weight:bold;background:#f1f5f9;"><td></td>`;
+    for (let g = 1; g <= 3; g++) html += `<td>재적</td><td>1차</td><td>2차</td><td>3차</td><td>4차</td><td>일간 참여율</td><td style="color:#4f46e5;">월간 평균</td>`;
     html += `</tr>`;
+    
     for (let c = 1; c <= maxClass; c++) {
-        html += `<tr><td>${c}반</td>`;
+        html += `<tr><td style="text-align:center;font-weight:bold;">${c}반</td>`;
         for (let g = 1; g <= 3; g++) {
             if (c <= CONFIG.classes[g]) {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
                 const counts = [1,2,3,4].map(p => countPresent(data, students, p));
                 const sum = counts.reduce((a,b)=>a+b,0); const slots = students.length*4;
-                html += `<td>${students.length}</td>` + counts.map(n=>`<td>${n}</td>`).join('') + `<td style="color:blue;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td>`;
-            } else html += `<td colspan="6"></td>`;
+                
+                const mStats = monthlyStats[`${g}_${c}`];
+                const mAvg = mStats && mStats.s > 0 ? (mStats.p / mStats.s * 100).toFixed(1) + '%' : '-';
+
+                html += `<td style="text-align:center;">${students.length}</td>` + counts.map(n=>`<td style="text-align:center;">${n}</td>`).join('') + `<td style="text-align:center;font-weight:bold;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td><td style="text-align:center;font-weight:bold;color:#4f46e5;">${mAvg}</td>`;
+            } else html += `<td colspan="${colsPerGrade}"></td>`;
         }
         html += `</tr>`;
     }
@@ -746,11 +820,12 @@ const exportDaily = () => {
 };
 
 const exportMonthly = () => {
-    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].sort();
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr)).sort();
     if (dates.length === 0) dates.push(currentDateStr);
     const classList = [];
     for (let g = 1; g <= 3; g++) for (let c = 1; c <= CONFIG.classes[g]; c++) classList.push({ g, c });
     const totalCols = 1 + classList.length + 1;
+    
     let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">월별 참여현황 (${currentMonthStr})</td></tr>`;
     html += `<tr style="background:#f1f5f9;font-weight:bold;text-align:center;"><td>날짜</td>` + classList.map(item => `<td style="mso-number-format:'\\@';">${item.g}-${item.c}반</td>`).join('') + `<td>일별 평균</td></tr>`;
     
@@ -777,6 +852,7 @@ const exportMonthly = () => {
         grandS += dSlots;
     });
 
+    // 맨 아래 반별 월평균 행 추가
     html += `<tr style="background:#e0e7ff;font-weight:bold;text-align:center;"><td>월평균</td>`;
     classTotals.forEach(total => {
         const avg = total.s > 0 ? (total.p / total.s * 100).toFixed(1) + '%' : '-';
