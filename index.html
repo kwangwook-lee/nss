@@ -7,12 +7,6 @@
     <!-- 구형 브라우저 및 전자칠판 호환성을 위해 표준 스타일시트 사용 -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- 구형 브라우저용 Firebase Compat 라이브러리 -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;900&display=swap');
         
@@ -154,53 +148,67 @@
     <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-2xl transform translate-y-32 transition-transform duration-300 z-50"></div>
 </div>
 
-<script>
-// 모듈 타입 제거 후 구형 브라우저 호환성을 위한 전통적 스크립트로 재작성
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 // --- CONFIG & CONST ---
-var CONFIG = {
+const CONFIG = {
     appId: typeof __app_id !== 'undefined' ? __app_id : 'attendance-v2',
     maxPeriods: 4,
     maxGrade: 3,
     classes: { 1: 6, 2: 7, 3: 7 }
 };
 
-var XL_STYLE = "table{border-collapse:collapse;font-family:'Malgun Gothic';} td{height:28px;vertical-align:middle;font-size:10pt;border:0.5pt solid #aaa;} .h{font-weight:bold;background:#f0f4ff;text-align:center;} .rate{color:#4f46e5;font-weight:bold;}";
+const XL_STYLE = `table{border-collapse:collapse;font-family:'Malgun Gothic';} td{height:28px;vertical-align:middle;font-size:10pt;border:0.5pt solid #aaa;} .h{font-weight:bold;background:#f0f4ff;text-align:center;} .rate{color:#4f46e5;font-weight:bold;}`;
 
 // --- STATE ---
-var db = null, auth = null, user = null, unsubAttendance = null;
-var currentView = 'teacher', selectedGrade = null, selectedClass = null;
-var currentDateStr = '', currentMonthStr = '', todayRealStr = '';
-var attendanceData = {}, allStudents = [], teachersData = {};
+let db, auth, user, unsubAttendance;
+let currentView = 'teacher', selectedGrade = null, selectedClass = null;
+let currentDateStr = '', currentMonthStr = '', todayRealStr = '';
+let attendanceData = {}, allStudents = [], teachersData = {};
 
 // --- UTILS ---
-function getTodayStr() {
-    var d = new Date();
-    var month = String(d.getMonth() + 1);
-    var day = String(d.getDate());
-    if (month.length < 2) month = '0' + month;
-    if (day.length < 2) day = '0' + day;
-    return d.getFullYear() + '-' + month + '-' + day;
-}
+const getTodayStr = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+};
 
-function formatDate(s) {
-    var d = new Date(s + 'T12:00:00');
-    var days = ['일','월','화','수','목','금','토'];
-    return s.replace(/-/g, '.') + ' (' + days[d.getDay()] + ')';
-}
+const formatDate = (s) => {
+    const d = new Date(s + 'T12:00:00');
+    return s.replace(/-/g, '.') + ' (' + ['일','월','화','수','목','금','토'][d.getDay()] + ')';
+};
 
-function downloadXls(html, filename) {
-    var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-    var a = document.createElement('a'); 
-    a.href = URL.createObjectURL(blob); 
-    a.download = filename; 
-    a.click();
-}
+const downloadXls = (html, filename) => {
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+};
 
 // --- DATA ---
-var teachersRaw = "학년,반,담임\n1학년,1반,김현정\n1학년,2반,류제원\n1학년,3반,고경미\n1학년,4반,고재덕\n1학년,5반,김지수\n1학년,6반,유지연\n2학년,1반,최미리\n2학년,2반,장영화\n2학년,3반,신선경\n2학년,4반,김용진\n2학년,5반,유지혜\n2학년,6반,박은정\n2학년,7반,강슬기\n3학년,1반,김혜미\n3학년,2반,남송현\n3학년,3반,이소진\n3학년,4반,권민지\n3학년,5반,김성년\n3학년,6반,김병희\n3학년,7반,이명진";
+const teachersRaw = `학년,반,담임
+1학년,1반,김현정
+1학년,2반,류제원
+1학년,3반,고경미
+1학년,4반,고재덕
+1학년,5반,김지수
+1학년,6반,유지연
+2학년,1반,최미리
+2학년,2반,장영화
+2학년,3반,신선경
+2학년,4반,김용진
+2학년,5반,유지혜
+2학년,6반,박은정
+2학년,7반,강슬기
+3학년,1반,김혜미
+3학년,2반,남송현
+3학년,3반,이소진
+3학년,4반,권민지
+3학년,5반,김성년
+3학년,6반,김병희
+3학년,7반,이명진`;
 
-var studentsRaw = "학번,이름
+const studentsRaw = `학번,이름
 10101,권기백
 10102,김이현
 10103,박어진
@@ -484,10 +492,10 @@ var studentsRaw = "학번,이름
 30709,이재원
 30710,이태윤
 30711,임성빈
-30712,조남훈";
+30712,조남훈`;
 
 // --- APP LOGIC ---
-function init() {
+const init = async () => {
     todayRealStr = getTodayStr();
     teachersData = parseTeachers(teachersRaw);
     allStudents = parseStudents(studentsRaw);
@@ -497,41 +505,22 @@ function init() {
     if (window.lucide) lucide.createIcons();
 
     try {
-        if (typeof firebase !== 'undefined' && typeof __firebase_config !== 'undefined') {
-            var cfg = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-            var app = firebase.initializeApp(cfg);
-            auth = firebase.auth(app); 
-            db = firebase.firestore(app);
-            
-            var authPromise;
+        if (typeof __firebase_config !== 'undefined') {
+            const app = initializeApp(JSON.parse(__firebase_config));
+            auth = getAuth(app); db = getFirestore(app);
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                authPromise = auth.signInWithCustomToken(__initial_auth_token);
-            } else { 
-                authPromise = auth.signInAnonymously(); 
-            }
-            
-            authPromise.then(function() {
-                auth.onAuthStateChanged(function(u) { 
-                    user = u; 
-                    if(user) subscribe(); 
-                });
-            }).catch(function(e){ console.warn("Firebase Auth Error", e); });
-            
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else { await signInAnonymously(auth); }
+            onAuthStateChanged(auth, u => { user = u; if(user) subscribe(); });
         }
     } catch(e) { console.warn("Firebase Offline"); }
-}
+};
 
-function setupEvents() {
-    document.body.addEventListener('click', function(e) {
-        var btn = e.target.closest('[data-action]');
+const setupEvents = () => {
+    document.body.addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
         if (!btn) return;
-        
-        var action = btn.dataset.action;
-        var val = btn.dataset.val;
-        var id = btn.dataset.id;
-        var p = btn.dataset.p;
-        var status = btn.dataset.status;
-        
+        const { action, val, id, p, status } = btn.dataset;
         if (action === 'switch-view') {
             currentView = val;
             document.getElementById('view-teacher').classList.toggle('hidden', val !== 'teacher');
@@ -540,477 +529,380 @@ function setupEvents() {
             document.getElementById('btn-admin').className = val === 'admin' ? "flex-1 px-4 py-2 rounded-lg font-bold bg-white shadow text-blue-600 whitespace-nowrap" : "flex-1 px-4 py-2 rounded-lg font-bold text-gray-500 whitespace-nowrap";
             if (val === 'admin') updateAdmin(); else render();
         }
-        if (action === 'set-grade') { selectedGrade = parseInt(val, 10); selectedClass = null; renderClasses(); updateUI(); }
-        if (action === 'set-class') { selectedClass = parseInt(val, 10); updateUI(); render(); }
+        if (action === 'set-grade') { selectedGrade = parseInt(val); selectedClass = null; renderClasses(); updateUI(); }
+        if (action === 'set-class') { selectedClass = parseInt(val); updateUI(); render(); }
         if (action === 'adjust-date') { 
-            var d = new Date(currentDateStr + 'T12:00:00');
-            d.setDate(d.getDate() + parseInt(val, 10));
-            var nextM = String(d.getMonth()+1);
-            var nextD = String(d.getDate());
-            if (nextM.length < 2) nextM = '0' + nextM;
-            if (nextD.length < 2) nextD = '0' + nextD;
-            var next = d.getFullYear() + '-' + nextM + '-' + nextD;
+            const d = new Date(currentDateStr + 'T12:00:00');
+            d.setDate(d.getDate() + parseInt(val));
+            const next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             if (next <= todayRealStr) changeDate(next);
         }
         if (action === 'go-today') changeDate(todayRealStr);
-        if (action === 'toggle-status') toggleStatus(id, parseInt(p, 10));
-        if (action === 'mark-all') markAll(parseInt(status, 10));
+        if (action === 'toggle-status') toggleStatus(id, parseInt(p));
+        if (action === 'mark-all') markAll(parseInt(status));
         if (action === 'clear-all') clearAll();
         if (action === 'export-excel-daily') exportDaily();
         if (action === 'export-excel-monthly') exportMonthly();
     });
-    
-    var dateSelector = document.getElementById('date-selector');
-    if (dateSelector) {
-        dateSelector.addEventListener('change', function(e) {
-            changeDate(e.target.value);
-        });
-    }
-}
+};
 
-function changeDate(d) {
+const changeDate = (d) => {
     currentDateStr = d;
     currentMonthStr = d.substring(0, 7);
     
-    var displayEl = document.getElementById('current-date-display');
+    const displayEl = document.getElementById('current-date-display');
     if (displayEl) displayEl.textContent = formatDate(d);
     
-    var dateSelector = document.getElementById('date-selector');
-    if (dateSelector) dateSelector.value = d;
-    
-    var btnPlus = document.getElementById('btn-day-plus');
+    const btnPlus = document.getElementById('btn-day-plus');
     if (btnPlus) {
         btnPlus.disabled = d >= todayRealStr;
         btnPlus.style.opacity = d >= todayRealStr ? '0.3' : '1';
     }
 
-    var btnToday = document.getElementById('btn-today');
+    const btnToday = document.getElementById('btn-today');
     if (btnToday) btnToday.classList.toggle('hidden', d === todayRealStr);
     
-    var warningEl = document.getElementById('date-warning');
+    const warningEl = document.getElementById('date-warning');
     if (warningEl) warningEl.classList.toggle('hidden', d === todayRealStr);
 
     if (user) subscribe(); else render();
-}
+};
 
-function renderClasses() {
-    var grid = document.getElementById('class-grid');
+const renderClasses = () => {
+    const grid = document.getElementById('class-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    var num = CONFIG.classes[selectedGrade] || 0;
-    for (var i = 1; i <= num; i++) {
-        grid.innerHTML += '<button data-action="set-class" data-val="' + i + '" class="class-btn py-3 border rounded-xl font-bold hover:bg-gray-50">' + i + '반</button>';
+    const num = CONFIG.classes[selectedGrade] || 0;
+    for (let i = 1; i <= num; i++) {
+        grid.innerHTML += `<button data-action="set-class" data-val="${i}" class="class-btn py-3 border rounded-xl font-bold hover:bg-gray-50">${i}반</button>`;
     }
-}
+};
 
-function updateUI() {
-    var gradeBtns = document.querySelectorAll('.grade-btn');
-    for (var i = 0; i < gradeBtns.length; i++) {
-        var activeG = parseInt(gradeBtns[i].dataset.val, 10) === selectedGrade;
-        gradeBtns[i].className = 'grade-btn py-3 border rounded-xl font-bold transition-all ' + (activeG ? 'bg-blue-600 text-white' : 'bg-white text-gray-700');
-    }
-    var classBtns = document.querySelectorAll('.class-btn');
-    for (var j = 0; j < classBtns.length; j++) {
-        var activeC = parseInt(classBtns[j].dataset.val, 10) === selectedClass;
-        classBtns[j].className = 'class-btn py-3 border rounded-xl font-bold transition-all ' + (activeC ? 'bg-blue-600 text-white' : 'bg-white text-gray-700');
-    }
+const updateUI = () => {
+    document.querySelectorAll('.grade-btn').forEach(b => {
+        const active = parseInt(b.dataset.val) === selectedGrade;
+        b.className = `grade-btn py-3 border rounded-xl font-bold transition-all ${active ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`;
+    });
+    document.querySelectorAll('.class-btn').forEach(b => {
+        const active = parseInt(b.dataset.val) === selectedClass;
+        b.className = `class-btn py-3 border rounded-xl font-bold transition-all ${active ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`;
+    });
     
-    var noSelect = document.getElementById('no-class-selected');
-    var container = document.getElementById('student-container');
-    var infoCard = document.getElementById('class-info-card');
+    const noSelect = document.getElementById('no-class-selected');
+    const container = document.getElementById('student-container');
+    const infoCard = document.getElementById('class-info-card');
     
     if (noSelect) noSelect.classList.toggle('hidden', !!selectedClass);
     if (container) container.classList.toggle('hidden', !selectedClass);
     if (infoCard) infoCard.classList.toggle('hidden', !selectedClass);
-}
+};
 
-function render() {
+const render = () => {
     if (!selectedGrade || !selectedClass) return;
-    var grid = document.getElementById('student-grid');
+    const grid = document.getElementById('student-grid');
     if (!grid) return;
     
-    var teacher = teachersData[selectedGrade + '_' + selectedClass] || '미배정';
-    var titleEl = document.getElementById('selected-class-title');
-    if (titleEl) titleEl.textContent = selectedGrade + '학년 ' + selectedClass + '반 (담임: ' + teacher + ')';
+    const teacher = teachersData[`${selectedGrade}_${selectedClass}`] || '미배정';
+    const titleEl = document.getElementById('selected-class-title');
+    if (titleEl) titleEl.textContent = `${selectedGrade}학년 ${selectedClass}반 (담임: ${teacher})`;
     
     grid.innerHTML = '';
-    var students = allStudents.filter(function(s) { return s.grade === selectedGrade && s.class === selectedClass; });
-    var data = attendanceData[currentDateStr + '_' + selectedGrade + '_' + selectedClass] || {};
+    const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
+    const data = attendanceData[`${currentDateStr}_${selectedGrade}_${selectedClass}`] || {};
 
-    students.forEach(function(s) {
-        var sData = data[s.id] || {p1:0, p2:0, p3:0, p4:0};
-        var card = document.createElement('div');
+    students.forEach(s => {
+        const sData = data[s.id] || {p1:0, p2:0, p3:0, p4:0};
+        const card = document.createElement('div');
         card.className = 'bg-white border p-4 rounded-2xl flex items-center justify-between shadow-sm';
-        
-        var btnsHtml = '';
-        for (var p = 1; p <= 4; p++) {
-            var st = sData['p' + p];
-            var cls = st === 1 ? 'status-present' : st === 2 ? 'status-absent' : 'status-none';
-            var txt = st === 1 ? '출' : st === 2 ? '결' : '-';
-            btnsHtml += '<button data-action="toggle-status" data-id="' + s.id + '" data-p="' + p + '" class="w-10 h-10 rounded-lg border-2 font-bold text-sm ' + cls + '">' + txt + '</button>';
-        }
-
-        card.innerHTML = 
-            '<div class="flex flex-col">' +
-                '<span class="text-xs font-bold text-gray-400">' + s.no + '번</span>' +
-                '<span class="text-xl font-black text-gray-800">' + s.name + '</span>' +
-            '</div>' +
-            '<div class="flex gap-1">' + btnsHtml + '</div>';
-        
+        card.innerHTML = `
+            <div class="flex flex-col">
+                <span class="text-xs font-bold text-gray-400">${s.no}번</span>
+                <span class="text-xl font-black text-gray-800">${s.name}</span>
+            </div>
+            <div class="flex gap-1">
+                ${[1,2,3,4].map(p => {
+                    const st = sData[`p${p}`];
+                    const cls = st === 1 ? 'status-present' : st === 2 ? 'status-absent' : 'status-none';
+                    return `<button data-action="toggle-status" data-id="${s.id}" data-p="${p}" class="w-10 h-10 rounded-lg border-2 font-bold text-sm ${cls}">${st===1?'출':st===2?'결':'-'}</button>`;
+                }).join('')}
+            </div>
+        `;
         grid.appendChild(card);
     });
     updateSummary(students, data);
-}
+};
 
-function toggleStatus(id, p) {
-    var key = currentDateStr + '_' + selectedGrade + '_' + selectedClass;
+const toggleStatus = async (id, p) => {
+    const key = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
     if (!attendanceData[key]) attendanceData[key] = {};
-    var cur = attendanceData[key];
+    const cur = attendanceData[key];
     if (!cur[id]) cur[id] = {p1:0,p2:0,p3:0,p4:0};
     
-    var next = (cur[id]['p' + p] + 1) % 3;
-    cur[id]['p' + p] = next;
+    const next = (cur[id][`p${p}`] + 1) % 3;
+    cur[id][`p${p}`] = next;
     
     // 결석(2) 처리 시, 이후 차시는 자동 결석 처리
     if (next === 2) { 
-        for (var i = p + 1; i <= 4; i++) cur[id]['p' + i] = 2; 
+        for (let i = p + 1; i <= 4; i++) cur[id][`p${i}`] = 2; 
     }
     
-    // 출석(1) 처리 시, 4차시를 제외한 이전 차시는 '미처리(0)'일 때만 자동 출석
+    // 출석(1) 처리 시, 4차시를 제외한(p<=3) 이전 차시는 '누르지 않은 상태(0)'일 때만 자동 출석 처리
     if (next === 1 && p <= 3) {
-        for (var j = 1; j < p; j++) {
-            if (cur[id]['p' + j] === 0) cur[id]['p' + j] = 1;
+        for (let i = 1; i < p; i++) {
+            if (cur[id][`p${i}`] === 0) {
+                cur[id][`p${i}`] = 1;
+            }
         }
     }
     
     render(); 
-    save(key, cur);
-}
+    await save(key, cur);
+};
 
-function markAll(status) {
-    var selectEl = document.getElementById('quick-period-select');
+const markAll = async (status) => {
+    const selectEl = document.getElementById('quick-period-select');
     if (!selectEl) return;
-    var p = parseInt(selectEl.value, 10);
-    var key = currentDateStr + '_' + selectedGrade + '_' + selectedClass;
+    const p = parseInt(selectEl.value);
+    const key = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
     if (!attendanceData[key]) attendanceData[key] = {};
-    var cur = attendanceData[key];
-    var students = allStudents.filter(function(s) { return s.grade === selectedGrade && s.class === selectedClass; });
+    const cur = attendanceData[key];
+    const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
     
-    students.forEach(function(s) {
+    students.forEach(s => {
         if (!cur[s.id]) cur[s.id] = {p1:0,p2:0,p3:0,p4:0};
-        cur[s.id]['p' + p] = status;
+        cur[s.id][`p${p}`] = status;
         
+        // 결석(2) 처리 시, 이후 차시는 자동 결석 처리
         if (status === 2) { 
-            for (var i = p + 1; i <= 4; i++) cur[s.id]['p' + i] = 2; 
+            for (let i = p + 1; i <= 4; i++) cur[s.id][`p${i}`] = 2; 
         }
         
+        // 출석(1) 처리 시, 4차시를 제외한(p<=3) 이전 차시는 '누르지 않은 상태(0)'일 때만 자동 출석 처리
         if (status === 1 && p <= 3) { 
-            for (var j = 1; j < p; j++) {
-                if (cur[s.id]['p' + j] === 0) cur[s.id]['p' + j] = 1;
+            for (let i = 1; i < p; i++) {
+                if (cur[s.id][`p${i}`] === 0) {
+                    cur[s.id][`p${i}`] = 1;
+                }
             }
         }
     });
     
     render(); 
-    save(key, cur);
-}
+    await save(key, cur);
+};
 
-function clearAll() {
+const clearAll = async () => {
     if(!confirm("기록을 초기화하시겠습니까?")) return;
-    var key = currentDateStr + '_' + selectedGrade + '_' + selectedClass;
-    attendanceData[key] = {}; 
-    render(); 
-    save(key, {});
-}
+    const key = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
+    attendanceData[key] = {}; render(); await save(key, {});
+};
 
-function updateSummary(students, data) {
-    var container = document.getElementById('class-stats-container');
+const updateSummary = (students, data) => {
+    const container = document.getElementById('class-stats-container');
     if (!container) return;
     container.innerHTML = '';
-    for (var p = 1; p <= 4; p++) {
-        var present = students.filter(function(s) { return (data[s.id] || {})['p' + p] === 1; }).length;
-        var per = students.length > 0 ? Math.round((present / students.length) * 100) : 0;
-        container.innerHTML += '<div class="flex justify-between text-sm py-1 border-b border-blue-100/50 text-blue-800"><b>' + p + '차시</b> <span>' + present + '명 (' + per + '%)</span></div>';
+    for (let p = 1; p <= 4; p++) {
+        const present = students.filter(s => (data[s.id] || {})[`p${p}`] === 1).length;
+        const per = students.length > 0 ? Math.round((present / students.length) * 100) : 0;
+        container.innerHTML += `<div class="flex justify-between text-sm py-1 border-b border-blue-100/50 text-blue-800"><b>${p}차시</b> <span>${present}명 (${per}%)</span></div>`;
     }
-}
+};
 
-function updateAdmin() {
-    var body = document.getElementById('admin-table-body'); 
+const updateAdmin = () => {
+    const body = document.getElementById('admin-table-body'); 
     if (!body) return;
     body.innerHTML = '';
-    var tP = 0, tT = 0;
-    var mP = 0, mT = 0;
+    let tP = 0, tT = 0;
+    let mP = 0, mT = 0;
     
-    var monthlyStats = {};
-    for (var g1 = 1; g1 <= 3; g1++) {
-        for (var c1 = 1; c1 <= CONFIG.classes[g1]; c1++) {
-            monthlyStats[g1 + '_' + c1] = { p: 0, s: 0 };
+    const monthlyStats = {};
+    for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            monthlyStats[`${g}_${c}`] = { p: 0, s: 0 };
         }
     }
-    
-    // 유일한 날짜 필터링 (IE 호환성 위해 Set 제외)
-    var dateKeys = Object.keys(attendanceData);
-    var dates = [];
-    for (var i=0; i<dateKeys.length; i++) {
-        var splitDate = dateKeys[i].split('_')[0];
-        if (splitDate.indexOf(currentMonthStr) === 0 && dates.indexOf(splitDate) === -1) {
-            dates.push(splitDate);
-        }
-    }
-    
-    dates.forEach(function(d) {
-        for (var g2 = 1; g2 <= 3; g2++) {
-            for (var c2 = 1; c2 <= CONFIG.classes[g2]; c2++) {
-                var students = allStudents.filter(function(s){ return s.grade === g2 && s.class === c2; });
-                var data = attendanceData[d + '_' + g2 + '_' + c2] || {};
-                var p = 0; 
-                for(var i=1;i<=4;i++) p += countPresent(data, students, i);
-                monthlyStats[g2 + '_' + c2].p += p;
-                monthlyStats[g2 + '_' + c2].s += students.length * 4;
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr));
+    dates.forEach(d => {
+        for (let g = 1; g <= 3; g++) {
+            for (let c = 1; c <= CONFIG.classes[g]; c++) {
+                const students = allStudents.filter(s => s.grade === g && s.class === c);
+                const data = attendanceData[`${d}_${g}_${c}`] || {};
+                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                monthlyStats[`${g}_${c}`].p += p;
+                monthlyStats[`${g}_${c}`].s += students.length * 4;
                 mP += p;
                 mT += students.length * 4;
             }
         }
     });
 
-    for (var g = 1; g <= 3; g++) {
-        for (var c = 1; c <= CONFIG.classes[g]; c++) {
-            var students = allStudents.filter(function(s){ return s.grade === g && s.class === c; });
+    for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            const students = allStudents.filter(s => s.grade === g && s.class === c);
             if (!students.length) continue;
             
-            var data = attendanceData[currentDateStr + '_' + g + '_' + c] || {};
-            var pCounts = [0,0,0,0];
-            students.forEach(function(s) { 
-                for (var i=0; i<4; i++) {
-                    if(data[s.id] && data[s.id]['p'+(i+1)] === 1) pCounts[i]++; 
-                }
-            });
-            var pSum = pCounts.reduce(function(a,b){ return a+b; }, 0); 
-            var slots = students.length * 4;
-            var per = slots > 0 ? (pSum/slots*100).toFixed(1) : '0.0';
+            const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
+            const pCounts = [0,0,0,0];
+            students.forEach(s => { for (let i=0; i<4; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; });
+            const pSum = pCounts.reduce((a,b)=>a+b, 0); const slots = students.length * 4;
+            const per = slots > 0 ? (pSum/slots*100).toFixed(1) : '0.0';
             
-            var mStats = monthlyStats[g + '_' + c];
-            var mPer = mStats.s > 0 ? (mStats.p/mStats.s*100).toFixed(1) : '0.0';
+            const mStats = monthlyStats[`${g}_${c}`];
+            const mPer = mStats.s > 0 ? (mStats.p/mStats.s*100).toFixed(1) : '0.0';
 
-            var teacherName = teachersData[g + '_' + c] || '-';
-
-            var trHtml = '<tr class="hover:bg-gray-50">' +
-                '<td class="p-4 font-bold">' + g + '-' + c + '</td>' +
-                '<td class="p-4 text-gray-500">' + teacherName + '</td>' +
-                '<td class="p-4 text-center">' + students.length + '</td>' +
-                '<td class="p-4 text-center">' + pCounts[0] + '</td>' +
-                '<td class="p-4 text-center">' + pCounts[1] + '</td>' +
-                '<td class="p-4 text-center">' + pCounts[2] + '</td>' +
-                '<td class="p-4 text-center">' + pCounts[3] + '</td>' +
-                '<td class="p-4 text-right font-black text-gray-800">' + per + '%</td>' +
-                '<td class="p-4 text-right font-black text-indigo-600">' + mPer + '%</td>' +
-            '</tr>';
-            body.innerHTML += trHtml;
+            body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4 text-center">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${pCounts[3]}</td><td class="p-4 text-right font-black text-gray-800">${per}%</td><td class="p-4 text-right font-black text-indigo-600">${mPer}%</td></tr>`;
             tP += pSum; tT += slots;
         }
     }
-    var totalEl = document.getElementById('admin-total-percent');
+    const totalEl = document.getElementById('admin-total-percent');
     if (totalEl) totalEl.textContent = tT > 0 ? (tP/tT*100).toFixed(1) + '%' : '0.0%';
     
-    var monthEl = document.getElementById('admin-monthly-percent');
+    const monthEl = document.getElementById('admin-monthly-percent');
     if (monthEl) monthEl.textContent = mT > 0 ? (mP/mT*100).toFixed(1) + '%' : '0.0%';
-}
+};
 
 // --- 엑셀 출력 ---
 function countPresent(data, students, period) {
-    var count = 0;
-    for (var i = 0; i < students.length; i++) {
-        if (data[students[i].id] && data[students[i].id]['p' + period] === 1) count++;
-    }
-    return count;
+    return students.filter(s => (data[s.id]?.[`p${period}`] ?? 0) === 1).length;
 }
 
-function exportDaily() {
-    var fd = currentDateStr.replace(/-/g, '.');
-    var maxClass = 7; // 고정 최댓값 (CONFIG 의존성 방지)
-    var colsPerGrade = 7; 
-    var totalCols = 1 + 3 * colsPerGrade;
+const exportDaily = () => {
+    const fd = currentDateStr.replace(/-/g, '.');
+    const maxClass = Math.max(...Object.values(CONFIG.classes));
+    const colsPerGrade = 7; // 재적, 1, 2, 3, 4, 참여율, 월평균
+    const totalCols = 1 + CONFIG.maxGrade * colsPerGrade;
     
-    var monthlyStats = {};
-    var dateKeys = Object.keys(attendanceData);
-    var dates = [];
-    for (var k=0; k<dateKeys.length; k++) {
-        var splitDate = dateKeys[k].split('_')[0];
-        if (splitDate.indexOf(currentMonthStr) === 0 && dates.indexOf(splitDate) === -1) dates.push(splitDate);
-    }
-
-    for (var g1 = 1; g1 <= 3; g1++) {
-        for (var c1 = 1; c1 <= CONFIG.classes[g1]; c1++) {
-            monthlyStats[g1 + '_' + c1] = { p: 0, s: 0 };
+    // 월간 평균 미리 계산
+    const monthlyStats = {};
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr));
+    for (let g = 1; g <= 3; g++) {
+        for (let c = 1; c <= CONFIG.classes[g]; c++) {
+            monthlyStats[`${g}_${c}`] = { p: 0, s: 0 };
         }
     }
-    dates.forEach(function(d) {
-        for (var g = 1; g <= 3; g++) {
-            for (var c = 1; c <= CONFIG.classes[g]; c++) {
-                var students = allStudents.filter(function(s){ return s.grade === g && s.class === c; });
-                var data = attendanceData[d + '_' + g + '_' + c] || {};
-                var p = 0; for(var i=1;i<=4;i++) p += countPresent(data, students, i);
-                monthlyStats[g + '_' + c].p += p;
-                monthlyStats[g + '_' + c].s += students.length * 4;
+    dates.forEach(d => {
+        for (let g = 1; g <= 3; g++) {
+            for (let c = 1; c <= CONFIG.classes[g]; c++) {
+                const students = allStudents.filter(s => s.grade === g && s.class === c);
+                const data = attendanceData[`${d}_${g}_${c}`] || {};
+                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                monthlyStats[`${g}_${c}`].p += p;
+                monthlyStats[`${g}_${c}`].s += students.length * 4;
             }
         }
     });
 
-    var html = '<tr><td colspan="' + totalCols + '" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">야간 자율학습 일별 참여현황 (' + fd + ')</td></tr>';
-    html += '<tr><td style="background:#f1f5f9;">반</td>';
-    for (var g2 = 1; g2 <= 3; g2++) html += '<td colspan="' + colsPerGrade + '" style="background:#e0e7ff;text-align:center;font-weight:bold;">' + g2 + '학년</td>';
-    html += '</tr><tr style="text-align:center;font-weight:bold;background:#f1f5f9;"><td></td>';
-    for (var g3 = 1; g3 <= 3; g3++) html += '<td>재적</td><td>1차</td><td>2차</td><td>3차</td><td>4차</td><td>일간 참여율</td><td style="color:#4f46e5;">월간 평균</td>';
-    html += '</tr>';
+    let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">야간 자율학습 일별 참여현황 (${fd})</td></tr>`;
+    html += `<tr><td style="background:#f1f5f9;">반</td>`;
+    for (let g = 1; g <= 3; g++) html += `<td colspan="${colsPerGrade}" style="background:#e0e7ff;text-align:center;font-weight:bold;">${g}학년</td>`;
+    html += `</tr><tr style="text-align:center;font-weight:bold;background:#f1f5f9;"><td></td>`;
+    for (let g = 1; g <= 3; g++) html += `<td>재적</td><td>1차</td><td>2차</td><td>3차</td><td>4차</td><td>일간 참여율</td><td style="color:#4f46e5;">월간 평균</td>`;
+    html += `</tr>`;
     
-    for (var c = 1; c <= maxClass; c++) {
-        html += '<tr><td style="text-align:center;font-weight:bold;">' + c + '반</td>';
-        for (var g = 1; g <= 3; g++) {
+    for (let c = 1; c <= maxClass; c++) {
+        html += `<tr><td style="text-align:center;font-weight:bold;">${c}반</td>`;
+        for (let g = 1; g <= 3; g++) {
             if (c <= CONFIG.classes[g]) {
-                var students = allStudents.filter(function(s){ return s.grade === g && s.class === c; });
-                var data = attendanceData[currentDateStr + '_' + g + '_' + c] || {};
-                var counts = [1,2,3,4].map(function(p) { return countPresent(data, students, p); });
-                var sum = counts.reduce(function(a,b){ return a+b; },0); 
-                var slots = students.length*4;
+                const students = allStudents.filter(s => s.grade === g && s.class === c);
+                const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
+                const counts = [1,2,3,4].map(p => countPresent(data, students, p));
+                const sum = counts.reduce((a,b)=>a+b,0); const slots = students.length*4;
                 
-                var mStats = monthlyStats[g + '_' + c];
-                var mAvg = mStats && mStats.s > 0 ? (mStats.p / mStats.s * 100).toFixed(1) + '%' : '-';
+                const mStats = monthlyStats[`${g}_${c}`];
+                const mAvg = mStats && mStats.s > 0 ? (mStats.p / mStats.s * 100).toFixed(1) + '%' : '-';
 
-                var countsHtml = '';
-                for(var i=0; i<counts.length; i++) countsHtml += '<td style="text-align:center;">' + counts[i] + '</td>';
-
-                html += '<td style="text-align:center;">' + students.length + '</td>' + countsHtml + '<td style="text-align:center;font-weight:bold;">' + (slots>0?(sum/slots*100).toFixed(1)+'%':'-') + '</td><td style="text-align:center;font-weight:bold;color:#4f46e5;">' + mAvg + '</td>';
-            } else {
-                html += '<td colspan="' + colsPerGrade + '"></td>';
-            }
+                html += `<td style="text-align:center;">${students.length}</td>` + counts.map(n=>`<td style="text-align:center;">${n}</td>`).join('') + `<td style="text-align:center;font-weight:bold;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td><td style="text-align:center;font-weight:bold;color:#4f46e5;">${mAvg}</td>`;
+            } else html += `<td colspan="${colsPerGrade}"></td>`;
         }
-        html += '</tr>';
+        html += `</tr>`;
     }
-    downloadXls("<html><head><meta charset='utf-8'><style>" + XL_STYLE + "</style></head><body><table border=\"1\" style=\"border-collapse:collapse;\">" + html + "</table></body></html>", "야자_일별_" + currentDateStr + ".xls");
-}
+    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table border="1" style="border-collapse:collapse;">${html}</table></body></html>`, `야자_일별_${currentDateStr}.xls`);
+};
 
-function exportMonthly() {
-    var dateKeys = Object.keys(attendanceData);
-    var dates = [];
-    for (var k=0; k<dateKeys.length; k++) {
-        var splitDate = dateKeys[k].split('_')[0];
-        if (splitDate.indexOf(currentMonthStr) === 0 && dates.indexOf(splitDate) === -1) dates.push(splitDate);
-    }
-    dates.sort();
-    
+const exportMonthly = () => {
+    const dates = [...new Set(Object.keys(attendanceData).map(k => k.split('_')[0]))].filter(d => d.startsWith(currentMonthStr)).sort();
     if (dates.length === 0) dates.push(currentDateStr);
+    const classList = [];
+    for (let g = 1; g <= 3; g++) for (let c = 1; c <= CONFIG.classes[g]; c++) classList.push({ g, c });
+    const totalCols = 1 + classList.length + 1;
     
-    var classList = [];
-    for (var g = 1; g <= 3; g++) {
-        for (var c = 1; c <= CONFIG.classes[g]; c++) classList.push({ g: g, c: c });
-    }
-    var totalCols = 1 + classList.length + 1;
+    let html = `<tr><td colspan="${totalCols}" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">월별 참여현황 (${currentMonthStr})</td></tr>`;
+    html += `<tr style="background:#f1f5f9;font-weight:bold;text-align:center;"><td>날짜</td>` + classList.map(item => `<td style="mso-number-format:'\\@';">${item.g}-${item.c}반</td>`).join('') + `<td>일별 평균</td></tr>`;
     
-    var html = '<tr><td colspan="' + totalCols + '" style="font-size:14pt;font-weight:bold;text-align:center;height:40px;">월별 참여현황 (' + currentMonthStr + ')</td></tr>';
-    var headerHtml = '';
-    classList.forEach(function(item) { headerHtml += '<td style="mso-number-format:\'\\@\';">' + item.g + '-' + item.c + '반</td>'; });
-    html += '<tr style="background:#f1f5f9;font-weight:bold;text-align:center;"><td>날짜</td>' + headerHtml + '<td>일별 평균</td></tr>';
-    
-    var classTotals = [];
-    for(var i=0; i<classList.length; i++) classTotals.push({ p: 0, s: 0 });
-    
-    var grandP = 0, grandS = 0;
+    const classTotals = classList.map(() => ({ p: 0, s: 0 }));
+    let grandP = 0, grandS = 0;
 
-    dates.forEach(function(d) {
-        var splitD = d.split('-');
-        var dayStr = splitD.length > 2 ? splitD[2] + '일' : d;
-        html += '<tr><td style="text-align:center;font-weight:bold;">' + dayStr + '</td>';
-        var dSum = 0, dSlots = 0;
-        classList.forEach(function(clsObj, index) {
-            var g = clsObj.g;
-            var c = clsObj.c;
-            var students = allStudents.filter(function(s){ return s.grade === g && s.class === c; });
-            var data = attendanceData[d + '_' + g + '_' + c] || {};
-            var p = 0; for(var j=1;j<=4;j++) p += countPresent(data, students, j);
-            var s = students.length*4;
-            html += '<td style="text-align:center;">' + p + '/' + s + '</td>'; 
+    dates.forEach(d => {
+        const dayStr = d.split('-').length > 2 ? d.split('-')[2] + '일' : d;
+        html += `<tr><td style="text-align:center;font-weight:bold;">${dayStr}</td>`;
+        let dSum = 0, dSlots = 0;
+        classList.forEach(({g,c}, index) => {
+            const students = allStudents.filter(s => s.grade === g && s.class === c);
+            const data = attendanceData[`${d}_${g}_${c}`] || {};
+            let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+            const s = students.length*4;
+            html += `<td style="text-align:center;">${p}/${s}</td>`; 
             dSum += p; 
             dSlots += s;
             classTotals[index].p += p;
             classTotals[index].s += s;
         });
-        html += '<td style="text-align:center;font-weight:bold;color:#4f46e5;background:#fef9c3;">' + (dSlots>0?(dSum/dSlots*100).toFixed(1)+'%':'-') + '</td></tr>';
+        html += `<td style="text-align:center;font-weight:bold;color:#4f46e5;background:#fef9c3;">${dSlots>0?(dSum/dSlots*100).toFixed(1)+'%':'-'}</td></tr>`;
         grandP += dSum;
         grandS += dSlots;
     });
 
-    html += '<tr style="background:#e0e7ff;font-weight:bold;text-align:center;"><td>월평균</td>';
-    classTotals.forEach(function(total) {
-        var avg = total.s > 0 ? (total.p / total.s * 100).toFixed(1) + '%' : '-';
-        html += '<td style="color:#4f46e5;">' + avg + '</td>';
+    // 맨 아래 반별 월평균 행 추가
+    html += `<tr style="background:#e0e7ff;font-weight:bold;text-align:center;"><td>월평균</td>`;
+    classTotals.forEach(total => {
+        const avg = total.s > 0 ? (total.p / total.s * 100).toFixed(1) + '%' : '-';
+        html += `<td style="color:#4f46e5;">${avg}</td>`;
     });
-    var grandAvg = grandS > 0 ? (grandP / grandS * 100).toFixed(1) + '%' : '-';
-    html += '<td style="color:#4f46e5;background:#fef9c3;">' + grandAvg + '</td></tr>';
+    const grandAvg = grandS > 0 ? (grandP / grandS * 100).toFixed(1) + '%' : '-';
+    html += `<td style="color:#4f46e5;background:#fef9c3;">${grandAvg}</td></tr>`;
 
-    downloadXls("<html><head><meta charset='utf-8'><style>" + XL_STYLE + "</style></head><body><table border=\"1\" style=\"border-collapse:collapse;\">" + html + "</table></body></html>", "야자_월별_" + currentMonthStr + ".xls");
-}
+    downloadXls(`<html><head><meta charset='utf-8'><style>${XL_STYLE}</style></head><body><table border="1" style="border-collapse:collapse;">${html}</table></body></html>`, `야자_월별_${currentMonthStr}.xls`);
+};
 
 // --- DB ---
-function save(docId, data) {
+const save = async (docId, data) => {
     if (!db || !user) return;
-    db.collection('artifacts').doc(CONFIG.appId)
-      .collection('public').doc('data')
-      .collection('attendance_' + currentMonthStr).doc(docId)
-      .set({ data: data }, { merge: true })
-      .catch(function(e) { console.warn(e); });
-}
+    try { await setDoc(doc(db, 'artifacts', CONFIG.appId, 'public', 'data', `attendance_${currentMonthStr}`, docId), { data: data }, { merge: true }); } catch (e) {}
+};
 
-function subscribe() {
+const subscribe = () => {
     if (!db || !user) return;
     if (unsubAttendance) unsubAttendance();
-    
-    unsubAttendance = db.collection('artifacts').doc(CONFIG.appId)
-      .collection('public').doc('data')
-      .collection('attendance_' + currentMonthStr)
-      .onSnapshot(function(snap) {
-          snap.forEach(function(d) {
-              attendanceData[d.id] = d.data().data || {}; 
-          });
-          if (currentView === 'teacher') render(); else updateAdmin();
-      }, function(e) { console.warn(e); });
-}
+    const colRef = collection(db, 'artifacts', CONFIG.appId, 'public', 'data', `attendance_${currentMonthStr}`);
+    unsubAttendance = onSnapshot(colRef, snap => {
+        snap.forEach(d => { attendanceData[d.id] = d.data().data || {}; });
+        if (currentView === 'teacher') render(); else updateAdmin();
+    });
+};
 
 // --- PARSERS ---
 function parseStudents(t) {
-    if (!t) return [];
-    var lines = t.trim().split('\n');
-    var result = [];
-    for(var i=1; i<lines.length; i++){
-        var p = lines[i].split(','); 
-        if (p.length < 2) continue;
-        var id = p[0].trim(); 
-        if (id.length < 5) continue;
-        result.push({ id: id, grade: parseInt(id.charAt(0), 10), class: parseInt(id.substring(1,3), 10), no: parseInt(id.substring(3,5), 10), name: p[1].trim() });
-    }
-    return result;
+    return t.trim().split('\n').slice(1).map(l => {
+        const p = l.split(','); if (p.length < 2) return null;
+        const id = p[0].trim(); return { id, grade: parseInt(id[0]), class: parseInt(id.substring(1,3)), no: parseInt(id.substring(3,5)), name: p[1].trim() };
+    }).filter(Boolean);
 }
 
 function parseTeachers(t) {
-    if (!t) return {};
-    var obj = {};
-    var lines = t.trim().split('\n');
-    for(var i=1; i<lines.length; i++){
-        var p = lines[i].split(','); 
-        if(p.length < 3) continue;
-        var gM = p[0].match(/\d+/);
-        var cM = p[1].match(/\d+/);
-        if (gM && cM) obj[parseInt(gM[0], 10) + '_' + parseInt(cM[0], 10)] = p[2].trim();
-    }
+    const obj = {};
+    t.trim().split('\n').slice(1).forEach(l => {
+        const p = l.split(','); const gM = p[0].match(/\d+/), cM = p[1].match(/\d+/);
+        if (gM && cM) obj[`${parseInt(gM[0])}_${parseInt(cM[0])}`] = p[2].trim();
+    });
     return obj;
 }
 
-function showToast(m) {
-    var t = document.getElementById('toast'); if(!t) return;
+const showToast = (m) => {
+    const t = document.getElementById('toast'); if(!t) return;
     t.textContent = m; t.classList.remove('translate-y-32');
-    setTimeout(function() { t.classList.add('translate-y-32'); }, 2500);
-}
+    setTimeout(() => t.classList.add('translate-y-32'), 2500);
+};
 
-// 요소들이 완전히 파싱된 상태이므로 즉시 초기화 실행
 init();
 </script>
 </body>
