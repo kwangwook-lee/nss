@@ -150,7 +150,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
 import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 // --- CONFIG & CONST ---
@@ -505,15 +505,25 @@ const init = async () => {
     if (window.lucide) lucide.createIcons();
 
     try {
-        if (typeof __firebase_config !== 'undefined') {
-            const app = initializeApp(JSON.parse(__firebase_config));
-            auth = getAuth(app); db = getFirestore(app);
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else { await signInAnonymously(auth); }
-            onAuthStateChanged(auth, u => { user = u; if(user) subscribe(); });
-        }
-    } catch(e) { console.warn("Firebase Offline"); }
+        // --- 선생님의 개인 Firebase 프로젝트 설정이 적용된 부분 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCnBMIbgl8JPHfQrB_RlLge7DdpkhJJPs",
+            authDomain: "nss1-39189.firebaseapp.com",
+            projectId: "nss1-39189",
+            storageBucket: "nss1-39189.firebasestorage.app",
+            messagingSenderId: "697141655291",
+            appId: "1:697141655291:web:da0c0f4371b07ec5bca25e",
+            measurementId: "G-ZQP6MCD2CS"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app); 
+        db = getFirestore(app);
+        
+        await signInAnonymously(auth);
+        onAuthStateChanged(auth, u => { user = u; if(user) subscribe(); });
+        // --------------------------------------------------------
+    } catch(e) { console.warn("Firebase Offline", e); }
 };
 
 const setupEvents = () => {
