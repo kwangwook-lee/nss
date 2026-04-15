@@ -246,7 +246,8 @@ import { getFirestore, doc, setDoc, collection, onSnapshot, getDocs } from 'http
 
 // --- CONFIG & CONST ---
 const CONFIG = {
-    appId: 'school-attendance-2026', // 원하시는 고유한 영문 이름으로 고정
+    // 기존 입력 데이터를 되찾기 위해 기본 저장소 이름으로 명시적 고정
+    appId: 'attendance-v2', 
     maxPeriods: 4,
     maxGrade: 3,
     classes: { 1: 6, 2: 7, 3: 7 }
