@@ -7,6 +7,7 @@
     <!-- 구형 브라우저 및 전자칠판 호환성을 위해 표준 스타일시트 사용 -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;900&display=swap');
         
@@ -29,12 +30,35 @@
         @media (min-width: 768px) { .grid-container { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .grid-container { grid-template-columns: repeat(3, 1fr); } }
 
-        .loader {
-            border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5;
-            border-radius: 50%; width: 20px; height: 20px;
-            animation: spin 1s linear infinite;
+        /* 날짜 선택기 커스텀 스타일 */
+        .date-input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 0 0.75rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            height: 2.5rem;
+            transition: all 0.2s;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .date-input-container:hover { border-color: #3b82f6; }
+        #date-selector {
+            font-weight: 700;
+            color: #1e293b;
+            background: transparent;
+            outline: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-left: 0.5rem;
+        }
+        /* 기본 달력 아이콘 숨기기 (선택사항, 필요시 제거 가능) */
+        #date-selector::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        #date-selector::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     </style>
 </head>
 <body class="min-h-screen text-slate-900 bg-gray-50">
@@ -48,24 +72,28 @@
         </h1>
 
         <div class="flex flex-col md:flex-row items-center gap-4">
-            <!-- 날짜 선택기 -->
+            <!-- 날짜 선택기 영역 개선 -->
             <div class="flex items-center bg-gray-100 p-1.5 rounded-xl">
-                <button data-action="adjust-date" data-val="-1" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white text-gray-600">
+                <button data-action="adjust-date" data-val="-1" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white text-gray-600 transition-colors">
                     <i data-lucide="chevron-left"></i>
                 </button>
-                <div class="relative px-4 h-10 flex items-center justify-center cursor-pointer bg-white rounded-lg mx-1 shadow-sm">
-                    <input type="date" id="date-selector" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                    <span id="current-date-display" class="font-bold text-gray-800">로딩 중...</span>
+                
+                <div class="date-input-container mx-1">
+                    <i data-lucide="calendar" class="w-4 h-4 text-blue-500"></i>
+                    <input type="date" id="date-selector">
                 </div>
-                <button id="btn-day-plus" data-action="adjust-date" data-val="1" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white text-gray-600">
+
+                <button id="btn-day-plus" data-action="adjust-date" data-val="1" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white text-gray-600 transition-colors">
                     <i data-lucide="chevron-right"></i>
                 </button>
             </div>
 
             <div class="flex items-center bg-gray-100 p-1.5 rounded-xl w-full md:w-auto">
                 <button id="btn-teacher" data-action="switch-view" data-val="teacher" class="flex-1 px-4 py-2 rounded-lg font-bold transition-all bg-white shadow text-blue-600 whitespace-nowrap">교사용</button>
+                <button id="btn-student" data-action="switch-view" data-val="student" class="flex-1 px-4 py-2 rounded-lg font-bold transition-all text-gray-500 whitespace-nowrap">학생용(시상)</button>
                 <button id="btn-admin" data-action="switch-view" data-val="admin" class="flex-1 px-4 py-2 rounded-lg font-bold transition-all text-gray-500 whitespace-nowrap">관리자용</button>
             </div>
+            
             <div class="flex gap-2">
                 <button id="btn-today" data-action="go-today" class="hidden px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm">오늘</button>
                 <span id="date-warning" class="hidden px-3 py-2 bg-red-50 text-red-600 rounded-lg font-bold text-xs animate-pulse">과거 기록</span>
@@ -115,6 +143,69 @@
         </div>
     </main>
 
+    <!-- VIEW: STUDENT (AWARD) -->
+    <main id="view-student" class="hidden space-y-6">
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="w-full lg:w-64 space-y-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                    <p class="text-sm font-bold text-gray-500 mb-3 uppercase">시상 회차</p>
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button data-action="set-award-round" data-val="1" class="round-btn py-2 border rounded-xl font-bold bg-blue-600 text-white">1회차</button>
+                        <button data-action="set-award-round" data-val="2" class="round-btn py-2 border rounded-xl font-bold bg-white text-gray-700">2회차</button>
+                        <button data-action="set-award-round" data-val="3" class="round-btn py-2 border rounded-xl font-bold bg-white text-gray-700">3회차</button>
+                        <button data-action="set-award-round" data-val="4" class="round-btn py-2 border rounded-xl font-bold bg-white text-gray-700">4회차</button>
+                    </div>
+                    <p class="text-sm font-bold text-gray-500 mb-3 uppercase">학년</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-action="set-grade" data-val="1" class="grade-btn py-3 border rounded-xl font-bold">1</button>
+                        <button data-action="set-grade" data-val="2" class="grade-btn py-3 border rounded-xl font-bold">2</button>
+                        <button data-action="set-grade" data-val="3" class="grade-btn py-3 border rounded-xl font-bold">3</button>
+                    </div>
+                    <p class="text-sm font-bold text-gray-500 my-3 uppercase">반</p>
+                    <div id="award-class-grid" class="grid grid-cols-4 gap-2"></div>
+                </div>
+            </div>
+
+            <div class="flex-1">
+                <div id="no-award-class-selected" class="bg-white border-2 border-dashed border-gray-200 rounded-3xl h-64 flex flex-col items-center justify-center text-gray-400">
+                    <p>회차, 학년, 반을 선택해 주세요.</p>
+                </div>
+                <div id="award-container" class="hidden">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4 flex flex-wrap items-center justify-between gap-4">
+                        <h2 class="text-xl font-black text-gray-800 flex items-center gap-2" id="award-title">
+                            <i data-lucide="award" class="text-yellow-500"></i> 시상 현황
+                        </h2>
+                        <div class="flex gap-2">
+                            <button data-action="export-award-grade" data-val="1" class="px-3 py-2 bg-green-600 text-white rounded-lg font-bold text-sm flex items-center gap-1 hover:bg-green-700 transition-colors">
+                                <i data-lucide="download" class="w-4 h-4"></i> 1학년 명단
+                            </button>
+                            <button data-action="export-award-grade" data-val="2" class="px-3 py-2 bg-green-600 text-white rounded-lg font-bold text-sm flex items-center gap-1 hover:bg-green-700 transition-colors">
+                                <i data-lucide="download" class="w-4 h-4"></i> 2학년 명단
+                            </button>
+                            <button data-action="export-award-grade" data-val="3" class="px-3 py-2 bg-green-600 text-white rounded-lg font-bold text-sm flex items-center gap-1 hover:bg-green-700 transition-colors">
+                                <i data-lucide="download" class="w-4 h-4"></i> 3학년 명단
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="p-4">학번</th>
+                                    <th class="p-4">이름</th>
+                                    <th class="p-4 text-center">참석일</th>
+                                    <th class="p-4 w-1/3">진척도 (목표: <span id="award-target-days" class="font-black text-blue-600">0</span>일)</th>
+                                    <th class="p-4 text-right">상태</th>
+                                </tr>
+                            </thead>
+                            <tbody id="award-table-body" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
     <!-- VIEW: ADMIN -->
     <main id="view-admin" class="hidden">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -151,11 +242,12 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore, doc, setDoc, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, collection, onSnapshot, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 // --- CONFIG & CONST ---
 const CONFIG = {
-    appId: typeof __app_id !== 'undefined' ? __app_id : 'attendance-v2',
+    // 기존 입력 데이터를 되찾기 위해 기본 저장소 이름으로 명시적 고정
+    appId: 'attendance-v2', 
     maxPeriods: 4,
     maxGrade: 3,
     classes: { 1: 6, 2: 7, 3: 7 }
@@ -357,6 +449,7 @@ const studentsRaw = `학번,이름
 20314,허주원
 20401,강예범
 20402,강지호
+20403,김강산
 20404,김민찬
 20405,김지원
 20406,박규민
@@ -496,8 +589,24 @@ const init = async () => {
     teachersData = parseTeachers(teachersRaw);
     allStudents = parseStudents(studentsRaw);
     
+    // 초기 날짜 설정
     changeDate(todayRealStr);
     setupEvents();
+    
+    // 달력 날짜 변경 감지
+    const dateInput = document.getElementById('date-selector');
+    if (dateInput) {
+        dateInput.value = todayRealStr; // 초기값 명시
+        dateInput.addEventListener('change', (e) => {
+            if (e.target.value <= todayRealStr) {
+                changeDate(e.target.value);
+            } else {
+                showToast("미래 날짜는 선택할 수 없습니다.");
+                e.target.value = currentDateStr;
+            }
+        });
+    }
+
     if (window.lucide) lucide.createIcons();
 
     try {
@@ -528,13 +637,25 @@ const setupEvents = () => {
         if (action === 'switch-view') {
             currentView = val;
             document.getElementById('view-teacher').classList.toggle('hidden', val !== 'teacher');
+            document.getElementById('view-student').classList.toggle('hidden', val !== 'student');
             document.getElementById('view-admin').classList.toggle('hidden', val !== 'admin');
-            document.getElementById('btn-teacher').className = val === 'teacher' ? "flex-1 px-4 py-2 rounded-lg font-bold bg-white shadow text-blue-600 whitespace-nowrap" : "flex-1 px-4 py-2 rounded-lg font-bold text-gray-500 whitespace-nowrap";
-            document.getElementById('btn-admin').className = val === 'admin' ? "flex-1 px-4 py-2 rounded-lg font-bold bg-white shadow text-blue-600 whitespace-nowrap" : "flex-1 px-4 py-2 rounded-lg font-bold text-gray-500 whitespace-nowrap";
-            if (val === 'admin') updateAdmin(); else render();
+            
+            const aCls = "flex-1 px-4 py-2 rounded-lg font-bold transition-all bg-white shadow text-blue-600 whitespace-nowrap";
+            const iCls = "flex-1 px-4 py-2 rounded-lg font-bold transition-all text-gray-500 whitespace-nowrap";
+            document.getElementById('btn-teacher').className = val === 'teacher' ? aCls : iCls;
+            document.getElementById('btn-student').className = val === 'student' ? aCls : iCls;
+            document.getElementById('btn-admin').className = val === 'admin' ? aCls : iCls;
+            
+            if (val === 'admin') updateAdmin(); 
+            else if (val === 'student') {
+                awardDataCache = {}; // 교사용 화면에서 방금 입력한 데이터를 즉시 반영하기 위해 캐시 초기화
+                loadAndRenderAward();
+            }
+            else render();
         }
-        if (action === 'set-grade') { selectedGrade = parseInt(val); selectedClass = null; renderClasses(); updateUI(); }
-        if (action === 'set-class') { selectedClass = parseInt(val); updateUI(); render(); }
+        if (action === 'set-award-round') { selectedAwardRound = parseInt(val); loadAndRenderAward(); }
+        if (action === 'set-grade') { selectedGrade = parseInt(val); selectedClass = null; renderClasses(); updateUI(); if (currentView === 'student') loadAndRenderAward(); }
+        if (action === 'set-class') { selectedClass = parseInt(val); updateUI(); if (currentView === 'student') loadAndRenderAward(); else render(); }
         if (action === 'adjust-date') { 
             const d = new Date(currentDateStr + 'T12:00:00');
             d.setDate(d.getDate() + parseInt(val));
@@ -547,15 +668,18 @@ const setupEvents = () => {
         if (action === 'clear-all') clearAll();
         if (action === 'export-excel-daily') exportDaily();
         if (action === 'export-excel-monthly') exportMonthly();
+        if (action === 'export-award-grade') exportAwardGradeExcel(parseInt(val));
     });
 };
 
 const changeDate = (d) => {
+    const prevMonth = currentMonthStr;
     currentDateStr = d;
     currentMonthStr = d.substring(0, 7);
     
-    const displayEl = document.getElementById('current-date-display');
-    if (displayEl) displayEl.textContent = formatDate(d);
+    // 인풋 값 동기화
+    const dateInput = document.getElementById('date-selector');
+    if (dateInput) dateInput.value = d;
     
     const btnPlus = document.getElementById('btn-day-plus');
     if (btnPlus) {
@@ -569,17 +693,24 @@ const changeDate = (d) => {
     const warningEl = document.getElementById('date-warning');
     if (warningEl) warningEl.classList.toggle('hidden', d === todayRealStr);
 
-    if (user) subscribe(); else render();
+    if (user && (prevMonth !== currentMonthStr || !unsubAttendance)) {
+        subscribe(); 
+    } else {
+        render();
+    }
 };
 
 const renderClasses = () => {
     const grid = document.getElementById('class-grid');
+    const gridAward = document.getElementById('award-class-grid');
     if (!grid) return;
-    grid.innerHTML = '';
+    let html = '';
     const num = CONFIG.classes[selectedGrade] || 0;
     for (let i = 1; i <= num; i++) {
-        grid.innerHTML += `<button data-action="set-class" data-val="${i}" class="class-btn py-3 border rounded-xl font-bold hover:bg-gray-50">${i}반</button>`;
+        html += `<button data-action="set-class" data-val="${i}" class="class-btn py-3 border rounded-xl font-bold hover:bg-gray-50">${i}반</button>`;
     }
+    grid.innerHTML = html;
+    if (gridAward) gridAward.innerHTML = html;
 };
 
 const updateUI = () => {
@@ -694,7 +825,17 @@ const markAll = async (status) => {
 const clearAll = async () => {
     if(!confirm("기록을 초기화하시겠습니까?")) return;
     const key = `${currentDateStr}_${selectedGrade}_${selectedClass}`;
-    attendanceData[key] = {}; render(); await save(key, {});
+    if (!attendanceData[key]) attendanceData[key] = {};
+    const cur = attendanceData[key];
+    const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
+    
+    // 현재 선택된 반의 모든 학생 상태를 명시적으로 '미지정(0)'으로 덮어씌웁니다.
+    students.forEach(s => {
+        cur[s.id] = { p1: 0, p2: 0, p3: 0, p4: 0 };
+    });
+    
+    render(); 
+    await save(key, cur);
 };
 
 const updateSummary = (students, data) => {
@@ -870,10 +1011,17 @@ const save = async (docId, data) => {
 const subscribe = () => {
     if (!db || !user) return;
     if (unsubAttendance) unsubAttendance();
+    
+    attendanceData = {};
+    
     const colRef = collection(db, 'artifacts', CONFIG.appId, 'public', 'data', `attendance_${currentMonthStr}`);
     unsubAttendance = onSnapshot(colRef, snap => {
-        snap.forEach(d => { attendanceData[d.id] = d.data().data || {}; });
+        const newData = {};
+        snap.forEach(d => { newData[d.id] = d.data().data || {}; });
+        attendanceData = newData;
         if (currentView === 'teacher') render(); else updateAdmin();
+    }, (err) => {
+        console.warn("DB 에러:", err);
     });
 };
 
@@ -892,6 +1040,178 @@ function parseTeachers(t) {
         if (gM && cM) obj[`${parseInt(gM[0])}_${parseInt(cM[0])}`] = p[2].trim();
     });
     return obj;
+}
+
+// --- AWARD & STUDENT DASHBOARD LOGIC ---
+const getRounds = (year) => ({
+    1: { name: '1회차', start: `${year}-03-09`, end: `${year}-04-24`, target: 26 },
+    2: { name: '2회차', start: `${year}-05-01`, end: `${year}-07-15`, target: 36 },
+    3: { name: '3회차', start: `${year}-08-18`, end: `${year}-10-08`, target: 26 },
+    4: { name: '4회차', start: `${year}-10-16`, end: `${year}-12-28`, target: 32 }
+});
+
+let selectedAwardRound = 1;
+let awardDataCache = {};
+
+async function loadAndRenderAward() {
+    document.querySelectorAll('.round-btn').forEach(b => {
+        const active = parseInt(b.dataset.val) === selectedAwardRound;
+        b.className = `round-btn py-2 border rounded-xl font-bold transition-all ${active ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`;
+    });
+
+    if (!selectedGrade || !selectedClass) {
+        document.getElementById('no-award-class-selected').classList.remove('hidden');
+        document.getElementById('award-container').classList.add('hidden');
+        return;
+    }
+    document.getElementById('no-award-class-selected').classList.add('hidden');
+    document.getElementById('award-container').classList.remove('hidden');
+
+    const year = currentDateStr.substring(0, 4) || new Date().getFullYear();
+    const rounds = getRounds(year);
+    const round = rounds[selectedAwardRound];
+    
+    document.getElementById('award-title').innerHTML = `<i data-lucide="award" class="text-yellow-500"></i> ${round.name} 시상 현황 (${selectedGrade}학년 ${selectedClass}반)`;
+    document.getElementById('award-target-days').textContent = round.target;
+    if (window.lucide) lucide.createIcons();
+    
+    const cacheKey = `${year}_${selectedAwardRound}`;
+    if (!awardDataCache[cacheKey]) {
+        showToast("시상 데이터를 불러오는 중입니다...");
+        awardDataCache[cacheKey] = await fetchAwardData(round);
+    }
+    
+    renderAwardTable(awardDataCache[cacheKey], round);
+}
+
+async function fetchAwardData(round) {
+    let compiled = {};
+    if (db) {
+        const startMonth = round.start.substring(0, 7);
+        const endMonth = round.end.substring(0, 7);
+        
+        const months = [];
+        let cur = new Date(`${startMonth}-01T12:00:00`);
+        const end = new Date(`${endMonth}-01T12:00:00`);
+        while (cur <= end) {
+            months.push(cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0'));
+            cur.setMonth(cur.getMonth() + 1);
+        }
+
+        for (const m of months) {
+            try {
+                const snap = await getDocs(collection(db, 'artifacts', CONFIG.appId, 'public', 'data', `attendance_${m}`));
+                snap.forEach(d => { compiled[d.id] = d.data().data || {}; });
+            } catch(e) { console.warn("Failed to fetch award data", m, e); }
+        }
+    }
+    
+    // DB 동기화 지연이나 권한 제한 상황을 대비하여, 
+    // 현재 화면에서 실시간으로 다루고 있는 로컬 출석 데이터를 결과에 덮어씌워 강제 병합합니다.
+    Object.keys(attendanceData).forEach(docId => {
+        compiled[docId] = attendanceData[docId];
+    });
+
+    return compiled;
+}
+
+function calculateValidDays(student, compiledData, round) {
+    let validDays = 0;
+    Object.keys(compiledData).forEach(docId => {
+        const [dStr, gStr, cStr] = docId.split('_');
+        if (parseInt(gStr) !== student.grade || parseInt(cStr) !== student.class) return;
+        if (dStr < round.start || dStr > round.end) return;
+        
+        const stData = compiledData[docId][student.id];
+        if (stData) {
+            let pCount = (stData.p1===1?1:0) + (stData.p2===1?1:0) + (stData.p3===1?1:0) + (stData.p4===1?1:0);
+            // 공통 조건: 일일 3차시 이상 / 3학년은 4차시(22시) 필수 반영
+            const isValid = pCount >= 3 && (student.grade < 3 || stData.p4 === 1);
+            if (isValid) validDays++;
+        }
+    });
+    return validDays;
+}
+
+function renderAwardTable(compiledData, round) {
+    const tbody = document.getElementById('award-table-body');
+    tbody.innerHTML = '';
+    const students = allStudents.filter(s => s.grade === selectedGrade && s.class === selectedClass);
+    
+    students.forEach(s => {
+        const validDays = calculateValidDays(s, compiledData, round);
+        const per = Math.min(100, Math.round((validDays / round.target) * 100));
+        const isWinner = validDays >= round.target;
+        const remaining = round.target - validDays;
+        
+        const statusHtml = isWinner 
+            ? `<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-bold inline-flex items-center gap-1"><i data-lucide="trophy" class="w-4 h-4"></i> 시상 대상자</span>`
+            : `<span class="text-gray-500 font-bold">${remaining}일 남음</span>`;
+            
+        const barColor = isWinner ? 'bg-yellow-400' : 'bg-blue-600';
+        
+        tbody.innerHTML += `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="p-4 font-bold text-gray-500">${s.id}</td>
+                <td class="p-4 font-black text-gray-900">${s.name}</td>
+                <td class="p-4 text-center font-bold text-blue-600">${validDays}일</td>
+                <td class="p-4">
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="${barColor} h-3 rounded-full transition-all duration-700" style="width: ${per}%"></div>
+                    </div>
+                </td>
+                <td class="p-4 text-right whitespace-nowrap">${statusHtml}</td>
+            </tr>
+        `;
+    });
+    if (window.lucide) lucide.createIcons();
+}
+
+async function exportAwardGradeExcel(grade) {
+    const year = currentDateStr.substring(0, 4) || new Date().getFullYear();
+    const round = getRounds(year)[selectedAwardRound];
+    const cacheKey = `${year}_${selectedAwardRound}`;
+    
+    if (!awardDataCache[cacheKey]) {
+        showToast("시상 데이터를 불러오는 중입니다...");
+        awardDataCache[cacheKey] = await fetchAwardData(round);
+    }
+    const compiledData = awardDataCache[cacheKey] || {};
+    
+    const gradeStudents = allStudents.filter(s => s.grade === grade);
+    let winners = [];
+    
+    gradeStudents.forEach(s => {
+        const validDays = calculateValidDays(s, compiledData, round);
+        if (validDays >= round.target) {
+            winners.push({
+                '학년': s.grade,
+                '반': s.class,
+                '번호': s.no,
+                '학번': s.id,
+                '이름': s.name,
+                '총 참석일수': validDays,
+                '상태': '🏆 시상 대상자'
+            });
+        }
+    });
+
+    // 반, 번호 순으로 정렬
+    winners.sort((a, b) => {
+        if (a['반'] !== b['반']) return a['반'] - b['반'];
+        return a['번호'] - b['번호'];
+    });
+
+    if (winners.length === 0) {
+        return showToast(`${grade}학년 시상 대상자가 아직 없습니다.`);
+    }
+    
+    // SheetJS를 이용한 .xlsx 파일 추출 로직
+    const ws = XLSX.utils.json_to_sheet(winners);
+    ws['!cols'] = [{wch: 6}, {wch: 6}, {wch: 6}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${grade}학년 시상자명단`);
+    XLSX.writeFile(wb, `[${round.name}_시상자명단_${grade}학년].xlsx`);
 }
 
 const showToast = (m) => {
