@@ -72,11 +72,6 @@
                 <button id="btn-student" data-action="switch-view" data-val="student" class="flex-1 px-4 py-2 rounded-lg font-bold transition-all text-gray-500 whitespace-nowrap">학생용(시상)</button>
                 <button id="btn-admin" data-action="switch-view" data-val="admin" class="flex-1 px-4 py-2 rounded-lg font-bold transition-all text-gray-500 whitespace-nowrap">관리자용</button>
             </div>
-            
-            <div class="flex gap-2">
-                <button id="btn-today" data-action="go-today" class="hidden px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm">오늘</button>
-                <span id="date-warning" class="hidden px-3 py-2 bg-red-50 text-red-600 rounded-lg font-bold text-xs animate-pulse">과거 기록</span>
-            </div>
         </div>
     </header>
 
@@ -641,7 +636,6 @@ const setupEvents = () => {
             const next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             if (next <= todayRealStr) changeDate(next);
         }
-        if (action === 'go-today') changeDate(todayRealStr);
         if (action === 'toggle-status') toggleStatus(id, parseInt(p));
         if (action === 'mark-all') markAll(parseInt(status));
         if (action === 'clear-all') clearAll();
@@ -669,12 +663,6 @@ const changeDate = (d) => {
         btnPlus.disabled = d >= todayRealStr;
         btnPlus.style.opacity = d >= todayRealStr ? '0.3' : '1';
     }
-
-    const btnToday = document.getElementById('btn-today');
-    if (btnToday) btnToday.classList.toggle('hidden', d === todayRealStr);
-    
-    const warningEl = document.getElementById('date-warning');
-    if (warningEl) warningEl.classList.toggle('hidden', d === todayRealStr);
 
     if (user && (prevMonth !== currentMonthStr || !unsubAttendance)) {
         subscribe(); 
