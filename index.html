@@ -251,6 +251,13 @@ const downloadXls = (html, filename) => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
 };
 
+const getRounds = (year) => ({
+    1: { name: '1회차', start: `${year}-03-09`, end: `${year}-04-24`, target: 26 },
+    2: { name: '2회차', start: `${year}-05-01`, end: `${year}-07-15`, target: 36 },
+    3: { name: '3회차', start: `${year}-08-18`, end: `${year}-10-08`, target: 26 },
+    4: { name: '4회차', start: `${year}-10-16`, end: `${year}-12-28`, target: 32 }
+});
+
 // --- DATA ---
 const teachersRaw = `학년,반,담임
 1학년,1반,김현정
@@ -623,6 +630,14 @@ const setupEvents = () => {
             if (val === 'admin') updateAdmin(); 
             else if (val === 'student') {
                 awardDataCache = {}; // 교사용 화면에서 방금 입력한 데이터를 즉시 반영하기 위해 캐시 초기화
+                const year = currentDateStr.substring(0, 4) || new Date().getFullYear();
+                const rounds = getRounds(year);
+                for (let i = 1; i <= 4; i++) {
+                    if (currentDateStr >= rounds[i].start && currentDateStr <= rounds[i].end) {
+                        selectedAwardRound = i;
+                        break;
+                    }
+                }
                 loadAndRenderAward();
             }
             else render();
@@ -662,6 +677,18 @@ const changeDate = (d) => {
     if (btnPlus) {
         btnPlus.disabled = d >= todayRealStr;
         btnPlus.style.opacity = d >= todayRealStr ? '0.3' : '1';
+    }
+
+    // 시상 화면일 경우, 선택된 날짜에 맞춰 회차를 자동 변경
+    if (currentView === 'student') {
+        const year = d.substring(0, 4) || new Date().getFullYear();
+        const rounds = getRounds(year);
+        for (let i = 1; i <= 4; i++) {
+            if (d >= rounds[i].start && d <= rounds[i].end) {
+                selectedAwardRound = i;
+                break;
+            }
+        }
     }
 
     if (user && (prevMonth !== currentMonthStr || !unsubAttendance)) {
@@ -1025,13 +1052,6 @@ function parseTeachers(t) {
 }
 
 // --- AWARD & STUDENT DASHBOARD LOGIC ---
-const getRounds = (year) => ({
-    1: { name: '1회차', start: `${year}-03-09`, end: `${year}-04-24`, target: 26 },
-    2: { name: '2회차', start: `${year}-05-01`, end: `${year}-07-15`, target: 36 },
-    3: { name: '3회차', start: `${year}-08-18`, end: `${year}-10-08`, target: 26 },
-    4: { name: '4회차', start: `${year}-10-16`, end: `${year}-12-28`, target: 32 }
-});
-
 let selectedAwardRound = 1;
 let awardDataCache = {};
 
@@ -1063,7 +1083,13 @@ async function loadAndRenderAward() {
         awardDataCache[cacheKey] = await fetchAwardData(round);
     }
     
-    renderAwardTable(awardDataCache[cacheKey], round);
+    // 캐싱된 DB 데이터와 현재 선택된 월의 실시간 변경 데이터를 덮어씌워 강제 병합합니다.
+    const compiledData = { ...awardDataCache[cacheKey] };
+    Object.keys(attendanceData).forEach(docId => {
+        compiledData[docId] = attendanceData[docId];
+    });
+    
+    renderAwardTable(compiledData, round);
 }
 
 async function fetchAwardData(round) {
@@ -1087,13 +1113,6 @@ async function fetchAwardData(round) {
             } catch(e) { console.warn("Failed to fetch award data", m, e); }
         }
     }
-    
-    // DB 동기화 지연이나 권한 제한 상황을 대비하여, 
-    // 현재 화면에서 실시간으로 다루고 있는 로컬 출석 데이터를 결과에 덮어씌워 강제 병합합니다.
-    Object.keys(attendanceData).forEach(docId => {
-        compiled[docId] = attendanceData[docId];
-    });
-
     return compiled;
 }
 
@@ -1103,6 +1122,9 @@ function calculateValidDays(student, compiledData, round) {
         const [dStr, gStr, cStr] = docId.split('_');
         if (parseInt(gStr) !== student.grade || parseInt(cStr) !== student.class) return;
         if (dStr < round.start || dStr > round.end) return;
+        
+        // [핵심 변경사항] 현재 달력에서 선택한 날짜까지만 참석일로 계산
+        if (dStr > currentDateStr) return;
         
         const stData = compiledData[docId][student.id];
         if (stData) {
@@ -1158,7 +1180,11 @@ async function exportAwardGradeExcel(grade) {
         showToast("시상 데이터를 불러오는 중입니다...");
         awardDataCache[cacheKey] = await fetchAwardData(round);
     }
-    const compiledData = awardDataCache[cacheKey] || {};
+    
+    const compiledData = { ...awardDataCache[cacheKey] };
+    Object.keys(attendanceData).forEach(docId => {
+        compiledData[docId] = attendanceData[docId];
+    });
     
     const gradeStudents = allStudents.filter(s => s.grade === grade);
     let winners = [];
