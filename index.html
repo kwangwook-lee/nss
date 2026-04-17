@@ -872,11 +872,17 @@ const updateAdmin = () => {
             for (let c = 1; c <= CONFIG.classes[g]; c++) {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data = attendanceData[`${d}_${g}_${c}`] || {};
-                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                let p = 0; 
+                // 1~3차시는 공통 반영
+                for(let i=1;i<=3;i++) p += countPresent(data, students, i);
+                // 3학년만 4차시 통계 합산
+                if (g === 3) p += countPresent(data, students, 4);
+                
+                const s = students.length * (g === 3 ? 4 : 3); // 1,2학년은 분모(slots)도 3배수
                 monthlyStats[`${g}_${c}`].p += p;
-                monthlyStats[`${g}_${c}`].s += students.length * 4;
+                monthlyStats[`${g}_${c}`].s += s;
                 mP += p;
-                mT += students.length * 4;
+                mT += s;
             }
         }
     });
@@ -888,14 +894,19 @@ const updateAdmin = () => {
             
             const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
             const pCounts = [0,0,0,0];
-            students.forEach(s => { for (let i=0; i<4; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; });
-            const pSum = pCounts.reduce((a,b)=>a+b, 0); const slots = students.length * 4;
+            students.forEach(s => { 
+                for (let i=0; i<3; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; 
+                if(g === 3 && data[s.id]?.[`p4`] === 1) pCounts[3]++; 
+            });
+            const pSum = pCounts[0] + pCounts[1] + pCounts[2] + (g === 3 ? pCounts[3] : 0);
+            const slots = students.length * (g === 3 ? 4 : 3);
             const per = slots > 0 ? (pSum/slots*100).toFixed(1) : '0.0';
             
             const mStats = monthlyStats[`${g}_${c}`];
             const mPer = mStats.s > 0 ? (mStats.p/mStats.s*100).toFixed(1) : '0.0';
+            const p4Display = g === 3 ? pCounts[3] : '-'; // 1,2학년은 화면에 4차시 '-' 표시
 
-            body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4 text-center">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${pCounts[3]}</td><td class="p-4 text-right font-black text-gray-800">${per}%</td><td class="p-4 text-right font-black text-indigo-600">${mPer}%</td></tr>`;
+            body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4 text-center">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${p4Display}</td><td class="p-4 text-right font-black text-gray-800">${per}%</td><td class="p-4 text-right font-black text-indigo-600">${mPer}%</td></tr>`;
             tP += pSum; tT += slots;
         }
     }
@@ -930,9 +941,11 @@ const exportDaily = () => {
             for (let c = 1; c <= CONFIG.classes[g]; c++) {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data = attendanceData[`${d}_${g}_${c}`] || {};
-                let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
+                let p = 0; 
+                for(let i=1;i<=3;i++) p += countPresent(data, students, i);
+                if (g === 3) p += countPresent(data, students, 4);
                 monthlyStats[`${g}_${c}`].p += p;
-                monthlyStats[`${g}_${c}`].s += students.length * 4;
+                monthlyStats[`${g}_${c}`].s += students.length * (g === 3 ? 4 : 3);
             }
         }
     });
@@ -951,12 +964,19 @@ const exportDaily = () => {
                 const students = allStudents.filter(s => s.grade === g && s.class === c);
                 const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
                 const counts = [1,2,3,4].map(p => countPresent(data, students, p));
-                const sum = counts.reduce((a,b)=>a+b,0); const slots = students.length*4;
+                const sum = counts[0] + counts[1] + counts[2] + (g === 3 ? counts[3] : 0);
+                const slots = students.length * (g === 3 ? 4 : 3);
                 
                 const mStats = monthlyStats[`${g}_${c}`];
                 const mAvg = mStats && mStats.s > 0 ? (mStats.p / mStats.s * 100).toFixed(1) + '%' : '-';
 
-                html += `<td style="text-align:center;">${students.length}</td>` + counts.map(n=>`<td style="text-align:center;">${n}</td>`).join('') + `<td style="text-align:center;font-weight:bold;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td><td style="text-align:center;font-weight:bold;color:#4f46e5;">${mAvg}</td>`;
+                html += `<td style="text-align:center;">${students.length}</td>` 
+                      + `<td style="text-align:center;">${counts[0]}</td>`
+                      + `<td style="text-align:center;">${counts[1]}</td>`
+                      + `<td style="text-align:center;">${counts[2]}</td>`
+                      + `<td style="text-align:center;">${g === 3 ? counts[3] : '-'}</td>`
+                      + `<td style="text-align:center;font-weight:bold;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td>`
+                      + `<td style="text-align:center;font-weight:bold;color:#4f46e5;">${mAvg}</td>`;
             } else html += `<td colspan="${colsPerGrade}"></td>`;
         }
         html += `</tr>`;
@@ -984,8 +1004,10 @@ const exportMonthly = () => {
         classList.forEach(({g,c}, index) => {
             const students = allStudents.filter(s => s.grade === g && s.class === c);
             const data = attendanceData[`${d}_${g}_${c}`] || {};
-            let p = 0; for(let i=1;i<=4;i++) p += countPresent(data, students, i);
-            const s = students.length*4;
+            let p = 0; 
+            for(let i=1;i<=3;i++) p += countPresent(data, students, i);
+            if (g === 3) p += countPresent(data, students, 4);
+            const s = students.length * (g === 3 ? 4 : 3);
             html += `<td style="text-align:center;">${p}/${s}</td>`; 
             dSum += p; 
             dSlots += s;
@@ -1123,14 +1145,23 @@ function calculateValidDays(student, compiledData, round) {
         if (parseInt(gStr) !== student.grade || parseInt(cStr) !== student.class) return;
         if (dStr < round.start || dStr > round.end) return;
         
-        // [핵심 변경사항] 현재 달력에서 선택한 날짜까지만 참석일로 계산
+        // 현재 달력에서 선택한 날짜까지만 참석일로 계산
         if (dStr > currentDateStr) return;
         
         const stData = compiledData[docId][student.id];
         if (stData) {
-            let pCount = (stData.p1===1?1:0) + (stData.p2===1?1:0) + (stData.p3===1?1:0) + (stData.p4===1?1:0);
-            // 공통 조건: 일일 3차시 이상 / 3학년은 4차시(22시) 필수 반영
-            const isValid = pCount >= 3 && (student.grade < 3 || stData.p4 === 1);
+            let pCount = (stData.p1===1?1:0) + (stData.p2===1?1:0) + (stData.p3===1?1:0);
+            
+            // 1, 2학년: 4차시 기록여부와 무관하게 1~3차시(3번)만 다 채우면 인정
+            // 3학년: 4차시(22시) 필수 포함하여 조건 충족 시 인정
+            let isValid = false;
+            if (student.grade < 3) {
+                isValid = pCount >= 3;
+            } else {
+                pCount += (stData.p4===1?1:0);
+                isValid = pCount >= 3 && stData.p4 === 1;
+            }
+            
             if (isValid) validDays++;
         }
     });
