@@ -895,8 +895,7 @@ const updateAdmin = () => {
             const data = attendanceData[`${currentDateStr}_${g}_${c}`] || {};
             const pCounts = [0,0,0,0];
             students.forEach(s => { 
-                for (let i=0; i<3; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; 
-                if(g === 3 && data[s.id]?.[`p4`] === 1) pCounts[3]++; 
+                for (let i=0; i<4; i++) if(data[s.id]?.[`p${i+1}`] === 1) pCounts[i]++; 
             });
             const pSum = pCounts[0] + pCounts[1] + pCounts[2] + (g === 3 ? pCounts[3] : 0);
             const slots = students.length * (g === 3 ? 4 : 3);
@@ -904,7 +903,7 @@ const updateAdmin = () => {
             
             const mStats = monthlyStats[`${g}_${c}`];
             const mPer = mStats.s > 0 ? (mStats.p/mStats.s*100).toFixed(1) : '0.0';
-            const p4Display = g === 3 ? pCounts[3] : '-'; // 1,2학년은 화면에 4차시 '-' 표시
+            const p4Display = pCounts[3]; // 화면 및 엑셀에 1, 2학년의 4차시 참석 숫자 자체는 표시
 
             body.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-4 font-bold">${g}-${c}</td><td class="p-4 text-gray-500">${teachersData[`${g}_${c}`]||'-'}</td><td class="p-4 text-center">${students.length}</td><td class="p-4 text-center">${pCounts[0]}</td><td class="p-4 text-center">${pCounts[1]}</td><td class="p-4 text-center">${pCounts[2]}</td><td class="p-4 text-center">${p4Display}</td><td class="p-4 text-right font-black text-gray-800">${per}%</td><td class="p-4 text-right font-black text-indigo-600">${mPer}%</td></tr>`;
             tP += pSum; tT += slots;
@@ -974,7 +973,7 @@ const exportDaily = () => {
                       + `<td style="text-align:center;">${counts[0]}</td>`
                       + `<td style="text-align:center;">${counts[1]}</td>`
                       + `<td style="text-align:center;">${counts[2]}</td>`
-                      + `<td style="text-align:center;">${g === 3 ? counts[3] : '-'}</td>`
+                      + `<td style="text-align:center;">${counts[3]}</td>` // 1, 2학년도 4차시 명수를 그대로 출력
                       + `<td style="text-align:center;font-weight:bold;">${slots>0?(sum/slots*100).toFixed(1)+'%':'-'}</td>`
                       + `<td style="text-align:center;font-weight:bold;color:#4f46e5;">${mAvg}</td>`;
             } else html += `<td colspan="${colsPerGrade}"></td>`;
